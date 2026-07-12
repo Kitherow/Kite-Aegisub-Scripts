@@ -1,7 +1,7 @@
 export script_name        = "Field Group Manager"
 export script_description = "Group unique dialogue field values and write mapped values into another field"
 export script_author      = "Kiterow"
-export script_version     = "1.0.4"
+export script_version     = "1.0.5"
 export script_namespace   = "kite.FieldGroupManager"
 HOTKEY_MENU_ROOT = ": Kite Hotkeys :"
 HOTKEY_MENU_SCRIPT = "Field Group Manager"
@@ -9,7 +9,12 @@ HOTKEY_MENU_SCRIPT = "Field Group Manager"
 DependencyControl = require "l0.DependencyControl"
 depctrl = DependencyControl{
   feed: "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json",
+  {
+    {"kite.UI", version: "1.0.0", url: "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+      feed: "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"}
+  }
 }
+KiteUI = depctrl\requireModules!
 
 MIXED_MARK = "<mixed>"
 EMPTY_MARK = "<empty>"
@@ -35,6 +40,17 @@ for field in *FIELDS
 
 SCOPES = { "Selection", "Whole script" }
 MODES = { "Parallel list", "Single value" }
+FIELD_SETTINGS = KiteUI.settings script_namespace, script_version, {
+  main: {
+    source: "Effect"
+    target: "Layer"
+    scope: "Selection"
+    mode: "Parallel list"
+    include_comments: true
+    include_empty_source: false
+  }
+}, {}
+FIELD_SETTINGS\load!
 
 trim = (value) ->
   text = tostring(value or "")
@@ -348,13 +364,14 @@ apply_tasks = (subs, tasks, target_field) ->
   changed_groups, changed_lines
 
 field_group_manager = (subs, sel) ->
+  saved = FIELD_SETTINGS\values "main"
   state = {
-    source: "Effect"
-    target: "Layer"
-    scope: if sel and #sel > 0 then "Selection" else "Whole script"
-    mode: "Parallel list"
-    include_comments: true
-    include_empty_source: false
+    source: saved.source
+    target: saved.target
+    scope: if saved.scope == "Selection" and (not sel or #sel == 0) then "Whole script" else saved.scope
+    mode: saved.mode
+    include_comments: saved.include_comments
+    include_empty_source: saved.include_empty_source
     single_value: ""
   }
 
@@ -403,6 +420,8 @@ field_group_manager = (subs, sel) ->
       continue
 
     changed_groups, changed_lines = apply_tasks subs, tasks, target_field
+    FIELD_SETTINGS\update "main", new_state, {"source", "target", "scope", "mode", "include_comments", "include_empty_source"}
+    FIELD_SETTINGS\write!
     aegisub.set_undo_point script_name if changed_lines > 0
     show_message "Updated #{changed_groups} group(s) and #{changed_lines} line(s).\nSkipped #{skipped} group(s)."
     return

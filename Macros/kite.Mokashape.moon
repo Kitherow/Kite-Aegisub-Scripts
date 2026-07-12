@@ -1,14 +1,14 @@
 export script_name        = "Moka Shape"
 export script_description = "Convert Adobe After Effects mask data to ASS clips or drawings"
 export script_author      = "Kiterow"
-export script_version     = "0.1.4"
+export script_version     = "0.1.5"
 export script_namespace   = "kite.Mokashape"
 HOTKEY_MENU_ROOT = ": Kite Hotkeys :"
 HOTKEY_MENU_SCRIPT = "Moka Shape"
 
 CONFIG_FILE = "kite-mokashape.json"
 
-local ZF, ASS, ConfigHandler, clipboard, depctrl, DependencyControl
+local ZF, ASS, KiteUI, clipboard, depctrl, DependencyControl
 
 safe_require = (name) ->
   ok, mod = pcall require, name
@@ -22,11 +22,16 @@ depctrl = DependencyControl{
         feed: "https://raw.githubusercontent.com/TypesettingTools/zeref-Aegisub-Scripts/main/DependencyControl.json"}
       {"l0.ASSFoundation", version: "0.5.0", url: "https://github.com/TypesettingTools/ASSFoundation",
         feed: "https://raw.githubusercontent.com/TypesettingTools/ASSFoundation/master/DependencyControl.json"}
-      {"a-mo.ConfigHandler", version: "1.1.4", url: "https://github.com/TypesettingTools/Aegisub-Motion",
-        feed: "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"}
+      {"kite.UI", version: "1.0.0", url: "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+        feed: "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"}
     }
 }
-ZF, ASS, ConfigHandler = depctrl\requireModules!
+ZF, ASS, KiteUI = depctrl\requireModules!
+
+ConfigHandler = (interface, file_name, _has_sections, version) ->
+  KiteUI.dialogHandler interface, script_namespace, version, {
+    {path: "?user/" .. file_name, format: "json_sections"}
+  }
 
 clipboard = safe_require "aegisub.clipboard"
 

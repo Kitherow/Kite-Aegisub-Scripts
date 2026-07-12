@@ -1,7 +1,7 @@
 script_name        = "PNG2ASS"
 script_description = "Convert PNG images into ASS drawing lines"
 script_author      = "Kiterow"
-script_version     = "1.1.3"
+script_version     = "1.1.4"
 script_namespace   = "kite.PNG2ASS"
 local HOTKEY_MENU_ROOT = ": Kite Hotkeys :"
 local HOTKEY_MENU_SCRIPT = script_name
@@ -27,19 +27,27 @@ do
                     url = "https://github.com/Akatmks/Akatsumekusa-Aegisub-Scripts",
                     feed = "https://raw.githubusercontent.com/Akatmks/Akatsumekusa-Aegisub-Scripts/master/DependencyControl.json",
                 },
+                {
+                    "kite.UI",
+                    version = "1.0.0",
+                    url = "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+                    feed = "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json",
+                },
             }
         })
     end
 end
 
 local command_api
+local KiteUI
 do
     if depctrl and depctrl.requireModules then
-        local ok, api = pcall(function()
+        local ok, api, ui = pcall(function()
             return depctrl:requireModules()
         end)
         if ok and api then
             command_api = api
+            KiteUI = ui
         end
     end
     if not command_api then
@@ -49,6 +57,7 @@ do
         end
     end
 end
+KiteUI = KiteUI or require("kite.UI")
 
 local lfs
 do
@@ -338,18 +347,29 @@ local function config_path(create)
     return join_path(script_dir(), config_file_name)
 end
 
+local PNG_SETTINGS = KiteUI.settings(script_namespace, script_version, {
+    package = default_config(),
+    main = {
+        engine = DEFAULTS.engine,
+        mode = DEFAULTS.mode,
+        color = DEFAULTS.color,
+        threshold = DEFAULTS.threshold,
+        p_scale = DEFAULTS.p_scale,
+        filter_speckle = DEFAULTS.filter_speckle,
+        simplify = DEFAULTS.simplify,
+        min_area = DEFAULTS.min_area,
+        position = DEFAULTS.position,
+        x = DEFAULTS.x,
+        y = DEFAULTS.y,
+        blur = DEFAULTS.blur,
+        max_chars = DEFAULTS.max_chars,
+    },
+}, {
+    { path = config_path(false), format = "key_value", target = "package" },
+})
+
 local function read_config()
-    local cfg = default_config()
-    local content = read_file(config_path(false))
-    if not content then
-        return cfg
-    end
-    for line in content:gmatch("[^\r\n]+") do
-        local key, value = line:match("^([%w_]+)=(.*)$")
-        if key == "python" or key == "install_source" then
-            cfg[key] = value
-        end
-    end
+    local cfg = PNG_SETTINGS:values("package")
     if trim(cfg.python) == "" then
         cfg.python = default_python()
     end
@@ -362,7 +382,8 @@ local function read_config()
 end
 
 local function write_config(cfg)
-    return write_file(config_path(true), "python=" .. trim(cfg.python) .. "\ninstall_source=" .. trim(cfg.install_source) .. "\n")
+    PNG_SETTINGS:update("package", cfg)
+    return PNG_SETTINGS:write()
 end
 
 function temp_paths()
@@ -513,7 +534,8 @@ end
 
 local function create_dialog(line, cfg, image_count, frame_count)
     local px, py = active_pos(line.text)
-    local default_position = (px and py) and "Active pos" or DEFAULTS.position
+    local saved = PNG_SETTINGS:values("main")
+    local default_position = (px and py) and "Active pos" or saved.position
     local count_label = "Images: " .. tostring(image_count or 1)
     if frame_count then
         count_label = count_label .. " / Frames: " .. tostring(frame_count)
@@ -521,35 +543,34 @@ local function create_dialog(line, cfg, image_count, frame_count)
     local interface = {
         title = { class = "label", label = "PNG2ASS", x = 0, y = 0, width = 6, height = 1 },
         engine_label = { class = "label", label = "Engine", x = 0, y = 1, width = 2, height = 1 },
-        engine = { class = "dropdown", name = "engine", items = ENGINES, value = DEFAULTS.engine, x = 2, y = 1, width = 3, height = 1 },
+        engine = { class = "dropdown", name = "engine", items = ENGINES, value = saved.engine, x = 2, y = 1, width = 3, height = 1 },
         mode_label = { class = "label", label = "Mode", x = 5, y = 1, width = 2, height = 1 },
-        mode = { class = "dropdown", name = "mode", items = MODES, value = DEFAULTS.mode, x = 7, y = 1, width = 3, height = 1 },
+        mode = { class = "dropdown", name = "mode", items = MODES, value = saved.mode, x = 7, y = 1, width = 3, height = 1 },
         color_label = { class = "label", label = "Color", x = 10, y = 1, width = 2, height = 1 },
-        color = { class = "dropdown", name = "color", items = COLORS, value = DEFAULTS.color, x = 12, y = 1, width = 3, height = 1 },
+        color = { class = "dropdown", name = "color", items = COLORS, value = saved.color, x = 12, y = 1, width = 3, height = 1 },
         threshold_label = { class = "label", label = "Threshold", x = 0, y = 2, width = 3, height = 1 },
-        threshold = { class = "intedit", name = "threshold", value = DEFAULTS.threshold, min = 1, max = 99, x = 3, y = 2, width = 3, height = 1 },
+        threshold = { class = "intedit", name = "threshold", value = saved.threshold, min = 1, max = 99, x = 3, y = 2, width = 3, height = 1 },
         scale_label = { class = "label", label = "Scale", x = 6, y = 2, width = 2, height = 1 },
-        p_scale = { class = "intedit", name = "p_scale", value = DEFAULTS.p_scale, min = 1, max = 6, x = 8, y = 2, width = 2, height = 1 },
+        p_scale = { class = "intedit", name = "p_scale", value = saved.p_scale, min = 1, max = 6, x = 8, y = 2, width = 2, height = 1 },
         speckle_label = { class = "label", label = "Speckle", x = 10, y = 2, width = 2, height = 1 },
-        filter_speckle = { class = "intedit", name = "filter_speckle", value = DEFAULTS.filter_speckle, min = 0, max = 100, x = 12, y = 2, width = 3, height = 1 },
+        filter_speckle = { class = "intedit", name = "filter_speckle", value = saved.filter_speckle, min = 0, max = 100, x = 12, y = 2, width = 3, height = 1 },
         simplify_label = { class = "label", label = "Simplify", x = 0, y = 3, width = 3, height = 1 },
-        simplify = { class = "floatedit", name = "simplify", value = DEFAULTS.simplify, min = 0, max = 20, step = 0.25, x = 3, y = 3, width = 3, height = 1 },
+        simplify = { class = "floatedit", name = "simplify", value = saved.simplify, min = 0, max = 20, step = 0.25, x = 3, y = 3, width = 3, height = 1 },
         min_area_label = { class = "label", label = "Min area", x = 6, y = 3, width = 3, height = 1 },
-        min_area = { class = "floatedit", name = "min_area", value = DEFAULTS.min_area, min = 0, max = 10000, step = 1, x = 9, y = 3, width = 3, height = 1 },
+        min_area = { class = "floatedit", name = "min_area", value = saved.min_area, min = 0, max = 10000, step = 1, x = 9, y = 3, width = 3, height = 1 },
         position_label = { class = "label", label = "Position", x = 0, y = 4, width = 3, height = 1 },
         position = { class = "dropdown", name = "position", items = POSITIONS, value = default_position, x = 3, y = 4, width = 4, height = 1 },
         x_label = { class = "label", label = "X", x = 7, y = 4, width = 1, height = 1 },
-        x = { class = "intedit", name = "x", value = px or DEFAULTS.x, min = -20000, max = 20000, x = 8, y = 4, width = 3, height = 1 },
+        x = { class = "intedit", name = "x", value = px or saved.x, min = -20000, max = 20000, x = 8, y = 4, width = 3, height = 1 },
         y_label = { class = "label", label = "Y", x = 11, y = 4, width = 1, height = 1 },
-        y = { class = "intedit", name = "y", value = py or DEFAULTS.y, min = -20000, max = 20000, x = 12, y = 4, width = 3, height = 1 },
+        y = { class = "intedit", name = "y", value = py or saved.y, min = -20000, max = 20000, x = 12, y = 4, width = 3, height = 1 },
         blur_label = { class = "label", label = "Blur", x = 0, y = 5, width = 2, height = 1 },
-        blur = { class = "floatedit", name = "blur", value = DEFAULTS.blur, min = 0, max = 20, step = 0.1, x = 2, y = 5, width = 3, height = 1 },
+        blur = { class = "floatedit", name = "blur", value = saved.blur, min = 0, max = 20, step = 0.1, x = 2, y = 5, width = 3, height = 1 },
         max_label = { class = "label", label = "Max chars", x = 5, y = 5, width = 3, height = 1 },
-        max_chars = { class = "intedit", name = "max_chars", value = DEFAULTS.max_chars, min = 1000, max = 2000000, x = 8, y = 5, width = 4, height = 1 },
+        max_chars = { class = "intedit", name = "max_chars", value = saved.max_chars, min = 1000, max = 2000000, x = 8, y = 5, width = 4, height = 1 },
         count_label = { class = "label", label = count_label, x = 0, y = 6, width = 15, height = 1 },
         python_label = { class = "label", label = "Python", x = 0, y = 7, width = 2, height = 1 },
         python = { class = "edit", name = "python", value = cfg.python, x = 2, y = 7, width = 11, height = 1 },
-        save_config = { class = "checkbox", name = "save_config", label = "Save", value = false, x = 13, y = 7, width = 2, height = 1 },
     }
     local button, result = aegisub.dialog.display(interface, { "Execute", "Cancel" }, { ok = "Execute", close = "Cancel" })
     if button ~= "Execute" then
@@ -560,6 +581,12 @@ local function create_dialog(line, cfg, image_count, frame_count)
         result.python = cfg.python
     end
     return result
+end
+
+local function persist_options(options, cfg)
+    PNG_SETTINGS:update("main", options)
+    cfg.python = options.python
+    write_config(cfg)
 end
 
 local function build_command(paths, png_path, options, pos_x, pos_y, allow_many_lines)
@@ -818,10 +845,6 @@ function PNG2ASS.main(subs, sel, active_line)
     end
 
     local options = create_dialog(line, cfg, #image_paths, frame_jobs and #frame_jobs or nil)
-    if options.save_config then
-        cfg.python = options.python
-        write_config(cfg)
-    end
     local paths = temp_paths()
     local pos_x, pos_y = resolve_position(options, line)
 
@@ -853,6 +876,7 @@ function PNG2ASS.main(subs, sel, active_line)
             end
         end
         local new_sel = insert_shapes(subs, index, ass_lines)
+        persist_options(options, cfg)
         aegisub.set_undo_point(script_name)
         return new_sel
     end
@@ -891,6 +915,7 @@ function PNG2ASS.main(subs, sel, active_line)
         end
     end
     insert_sequence_shapes(subs, frame_jobs, frames)
+    persist_options(options, cfg)
     aegisub.set_undo_point(script_name)
     return sel
 end

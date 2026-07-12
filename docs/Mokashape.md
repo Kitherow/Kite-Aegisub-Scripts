@@ -1,4 +1,4 @@
-# Moka Shape 0.1.4
+# Moka Shape 0.1.5
 
 Moka Shape converts Adobe After Effects mask data into ASS clips or drawing lines.
 

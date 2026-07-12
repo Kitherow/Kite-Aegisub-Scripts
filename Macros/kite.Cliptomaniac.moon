@@ -2,10 +2,10 @@ export script_name = "Cliptomaniac"
 export script_description = "Clip toolbox for measuring, transforming, reshaping, fitting, and projecting ASS clips."
 export script_author = "Kiterow"
 export script_namespace = "kite.Cliptomaniac"
-export script_version = "0.2.25"
+export script_version = "0.2.30"
 
 
-local ZF, ASS, ArchPerspective, ConfigHandler, LineCollection, Functional, Util, AMLine, depctrl, logger
+local ZF, ASS, ArchPerspective, LineCollection, Functional, Util, AMLine, depctrl, logger
 Core = {}
 PerspectiveTools = {}
 
@@ -19,8 +19,8 @@ depctrl = DependencyControl{
         feed: "https://raw.githubusercontent.com/TypesettingTools/ASSFoundation/master/DependencyControl.json"}
       {"arch.Perspective", version: "1.2.1", url: "https://github.com/TypesettingTools/arch1t3cht-Aegisub-Scripts",
         feed: "https://raw.githubusercontent.com/TypesettingTools/arch1t3cht-Aegisub-Scripts/main/DependencyControl.json"}
-      {"a-mo.ConfigHandler", version: "1.1.4", url: "https://github.com/TypesettingTools/Aegisub-Motion",
-        feed: "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"}
+      {"kite.UI", version: "1.0.0", url: "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+        feed: "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"}
       {"a-mo.LineCollection", version: "1.3.0", url: "https://github.com/TypesettingTools/Aegisub-Motion",
         feed: "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"}
       {"l0.Functional", version: "0.6.0", url: "https://github.com/TypesettingTools/Functional",
@@ -31,8 +31,13 @@ depctrl = DependencyControl{
         feed: "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"}
     }
 }
-ZF, ASS, ArchPerspective, ConfigHandler, LineCollection, Functional, Util, AMLine = depctrl\requireModules!
+ZF, ASS, ArchPerspective, Core.UI, LineCollection, Functional, Util, AMLine = depctrl\requireModules!
 logger = depctrl\getLogger!
+
+ConfigHandler = (interface, file_name, _has_sections, version) ->
+  Core.UI.dialogHandler interface, script_namespace, version, {
+    {path: "?user/" .. file_name, format: "json_sections"}
+  }
 
 Core.safe_require = (name) ->
   ok, mod = pcall require, name
@@ -789,12 +794,25 @@ Core.balanced_paren_end = (text, open_pos) ->
       return i if depth == 0
   nil
 
+Core.ass_override_names = {
+  "iclip", "clip", "xbord", "ybord", "xshad", "yshad", "fscx", "fscy"
+  "alpha", "blur", "bord", "shad", "move", "fade", "frx", "fry", "frz", "fax", "fay"
+  "pos", "org", "fad", "fsp", "fn", "fs", "be", "an", "fr", "ko", "kf", "kt"
+  "1a", "2a", "3a", "4a", "1c", "2c", "3c", "4c", "c", "p", "b", "i", "u", "s", "r", "t", "q", "k", "K", "a"
+}
+
+Core.tag_name_at = (inner, slash_pos) ->
+  rest = tostring(inner or "")\sub (tonumber(slash_pos) or 0) + 1
+  for name in *Core.ass_override_names
+    return name if rest\sub(1, #name) == name
+  rest\match "^[1-4]?%a+"
+
 Core.clip_span_in_inner = (text, inner, base_offset, init = 1) ->
   inner = inner or ""
   i = 1
   while i <= #inner
     if inner\sub(i, i) == "\\"
-      name = inner\sub(i + 1)\match "^[1-4]?%a+"
+      name = Core.tag_name_at inner, i
       if name
         value_pos = i + 1 + #name
         if inner\sub(value_pos, value_pos) == "("
@@ -1525,7 +1543,7 @@ Core.numeric_tag_value = (text, tag, fallback = nil) ->
     i = 1
     while i <= #block.inner
       if block.inner\sub(i, i) == "\\"
-        name = block.inner\sub(i + 1)\match "^[1-4]?%a+"
+        name = Core.tag_name_at block.inner, i
         if name
           value_pos = i + 1 + #name
           if block.inner\sub(value_pos, value_pos) == "("
@@ -1535,20 +1553,88 @@ Core.numeric_tag_value = (text, tag, fallback = nil) ->
           if name == tag
             raw = block.inner\sub(value_pos)\match "^" .. NUM_PATTERN
             value = tonumber(raw) or value if raw and raw != ""
-          i = value_pos + 1
+          i = value_pos
           continue
       i += 1
   value or fallback
 
-Core.style_value = (line, key, fallback) ->
-  style = line and (line.styleref or line.styleRef) or {}
+Core.ass_tag_names = {
+  an: "align"
+  fscx: "scale_x"
+  fscy: "scale_y"
+  fr: "angle"
+  frz: "angle"
+  frx: "angle_x"
+  fry: "angle_y"
+  fax: "shear_x"
+  fay: "shear_y"
+  fs: "fontsize"
+  fsp: "spacing"
+  b: "bold"
+  i: "italic"
+  u: "underline"
+  s: "strikeout"
+  bord: "outline"
+  xbord: "outline_x"
+  ybord: "outline_y"
+  shad: "shadow"
+  xshad: "shadow_x"
+  yshad: "shadow_y"
+  blur: "blur"
+  be: "be"
+}
+
+Core.tag_number = (value, fallback = nil) ->
+  kind = type value
+  return value and 1 or 0 if kind == "boolean"
+  if kind == "number" or kind == "string"
+    n = tonumber value
+    return n if n != nil
+  return fallback unless kind == "table"
+  n = tonumber value.value
+  return n if n != nil
+  if value.getTagParams
+    ok, raw = pcall -> value\getTagParams!
+    n = tonumber raw if ok
+    return n if n != nil
+  if value.get
+    ok, raw = pcall -> value\get!
+    n = tonumber raw if ok
+    return n if n != nil
+  fallback
+
+Core.effective_line_state = (line, index = -1) ->
+  state = {line: line, tags: {}}
+  if ASS and line
+    ok_data, data = pcall -> Core.parse_ass_line line
+    if ok_data and data
+      state.data = data
+      if data.getEffectiveTags
+        ok_tags, tag_list = pcall -> data\getEffectiveTags index, true, true, true
+        if ok_tags and tag_list
+          state.tag_list = tag_list
+          state.tags = tag_list.tags or {}
+          style_ref = data.line and (data.line.styleRef or data.line.styleref) or line.styleRef or line.styleref
+          if tag_list.getStyleTable and type(style_ref) == "table"
+            ok_style, style = pcall -> tag_list\getStyleTable style_ref, line.style or style_ref.name, true
+            state.style = style if ok_style and type(style) == "table"
+  state.style or= Core.copy_style(line and (line.styleRef or line.styleref)) or {}
+  state
+
+Core.style_value = (line, key, fallback, state = nil) ->
+  state or= Core.effective_line_state line
+  style = state and state.style or line and (line.styleref or line.styleRef) or {}
   tonumber(style[key]) or fallback
 
-Core.line_scale_default = (line, axis) ->
-  if axis == "y"
-    Core.style_value line, "scale_y", 100
-  else
-    Core.style_value line, "scale_x", 100
+Core.line_tag_value = (line, tag, style_key = nil, fallback = nil, state = nil) ->
+  state or= Core.effective_line_state line
+  ass_name = Core.ass_tag_names[tag] or tag
+  value = Core.tag_number state and state.tags and state.tags[ass_name]
+  return value if value != nil
+  value = Core.numeric_tag_value line and line.text or "", tag
+  return value if value != nil
+  return Core.style_value(line, style_key, fallback, state) if style_key
+  fallback
 
 Core.remove_tag_names = (text, names) ->
   set = {}
@@ -1557,7 +1643,7 @@ Core.remove_tag_names = (text, names) ->
     out, i = {}, 1
     while i <= #inner
       if inner\sub(i, i) == "\\"
-        name = inner\sub(i + 1)\match "^[1-4]?%a+"
+        name = Core.tag_name_at inner, i
         if name
           value_pos = i + 1 + #name
           if inner\sub(value_pos, value_pos) == "("
@@ -1585,7 +1671,7 @@ Core.replace_or_insert_numeric_tag = (text, tag, value) ->
     i = 1
     while i <= #inner
       if inner\sub(i, i) == "\\"
-        name = inner\sub(i + 1)\match "^[1-4]?%a+"
+        name = Core.tag_name_at inner, i
         if name
           value_pos = i + 1 + #name
           if inner\sub(value_pos, value_pos) == "("
@@ -1597,7 +1683,7 @@ Core.replace_or_insert_numeric_tag = (text, tag, value) ->
             if raw and raw != ""
               replaced = true
               return inner\sub(1, i - 1) .. payload .. inner\sub(value_pos + #raw)
-          i = value_pos + 1
+          i = value_pos
           continue
       i += 1
     inner
@@ -1610,7 +1696,7 @@ Core.scale_existing_numeric_tag = (text, tag, factor, fallback = nil) ->
     out, i = {}, 1
     while i <= #inner
       if inner\sub(i, i) == "\\"
-        name = inner\sub(i + 1)\match "^[1-4]?%a+"
+        name = Core.tag_name_at inner, i
         if name
           value_pos = i + 1 + #name
           if inner\sub(value_pos, value_pos) == "("
@@ -1635,21 +1721,22 @@ Core.scale_existing_numeric_tag = (text, tag, factor, fallback = nil) ->
 
 Core.adjust_text_by_ratio = (line, ratio, opts) ->
   text = line.text or ""
+  state = Core.effective_line_state line
   axis = opts.axis
   if axis == "x" or axis == "both"
-    base = Core.numeric_tag_value text, "fscx", Core.line_scale_default(line, "x")
+    base = Core.line_tag_value line, "fscx", "scale_x", 100, state
     text = Core.scale_existing_numeric_tag text, "fscx", ratio, base if opts.adj_fscx
   if axis == "y" or axis == "both"
-    base = Core.numeric_tag_value text, "fscy", Core.line_scale_default(line, "y")
+    base = Core.line_tag_value line, "fscy", "scale_y", 100, state
     text = Core.scale_existing_numeric_tag text, "fscy", ratio, base if opts.adj_fscy
-  text = Core.scale_existing_numeric_tag text, "fs", ratio, Core.style_value(line, "fontsize", 20) if opts.adj_fs
-  text = Core.scale_existing_numeric_tag text, "fsp", ratio, Core.style_value(line, "spacing", 0) if opts.adj_fsp
+  text = Core.scale_existing_numeric_tag text, "fs", ratio, Core.style_value(line, "fontsize", 20, state) if opts.adj_fs
+  text = Core.scale_existing_numeric_tag text, "fsp", ratio, Core.style_value(line, "spacing", 0, state) if opts.adj_fsp
   if opts.adj_bord
-    text = Core.scale_existing_numeric_tag text, "bord", ratio, Core.style_value(line, "outline", 0)
+    text = Core.scale_existing_numeric_tag text, "bord", ratio, Core.style_value(line, "outline", 0, state)
     text = Core.scale_existing_numeric_tag text, "xbord", ratio
     text = Core.scale_existing_numeric_tag text, "ybord", ratio
   if opts.adj_shad
-    text = Core.scale_existing_numeric_tag text, "shad", ratio, Core.style_value(line, "shadow", 0)
+    text = Core.scale_existing_numeric_tag text, "shad", ratio, Core.style_value(line, "shadow", 0, state)
     text = Core.scale_existing_numeric_tag text, "xshad", ratio
     text = Core.scale_existing_numeric_tag text, "yshad", ratio
   if opts.adj_blur
@@ -1666,13 +1753,56 @@ Core.rectangle_clip_bounds_from_line = (line) ->
   nil, "bad_clip"
 
 Core.align_for_line = (line) ->
-  style_align = Core.style_value line, "align", 5
-  n = math.floor tonumber(Core.numeric_tag_value(line and line.text or "", "an", style_align)) or style_align or 5
+  n = math.floor tonumber(Core.line_tag_value(line, "an", "align", 5)) or 5
   if n >= 1 and n <= 9 then n else 5
+
+Core.zf_align_for_line = (line) ->
+  for block in *Core.override_block_spans(line and line.text or "")
+    if block.inner\find("\\an[1-9]") or block.inner\find("\\r", 1, true)
+      return Core.align_for_line line
+  n = math.floor tonumber(line and line.styleref and line.styleref.align) or 0
+  return n if n >= 1 and n <= 9
+  Core.align_for_line line
+
+Core.leading_override_tags = (text) ->
+  payload, cursor = {}, 1
+  for block in *Core.override_block_spans text
+    break unless block.start == cursor
+    payload[#payload + 1] = block.inner if Core.looks_like_override block.inner
+    cursor = block.stop + 1
+  table.concat payload
+
+Core.prepare_zf_text_line = (dlg, source_line, drop_clip = true) ->
+  work = Core.copy_line source_line
+  work.styleref = Core.copy_style work.styleref if work.styleref
+  work.styleRef = Core.copy_style work.styleRef if work.styleRef
+  work.text = Core.strip_clip_tags work.text if drop_clip
+  leading = Core.leading_override_tags work.text
+  work.text = "{" .. leading .. "}" .. work.text if leading != ""
+  call = ZF.line(work)\prepoc dlg
+  pers = dlg\getPerspectiveTags work
+  source_align = Core.zf_align_for_line work
+  align = source_align
+  shape = ZF.util\isShape work.text
+  multiline = work.text\find("\\N", 1, true) or work.text\find("\\n", 1, true)
+  if not shape and not Core.line_needs_projected_quad(work) and pers and pers.pos and not multiline
+    width, height = tonumber(work.width), tonumber(work.height)
+    if width and height and width > 0 and height > 0
+      column = (source_align - 1) % 3
+      row = math.floor (source_align - 1) / 3
+      x = pers.pos[1] - (column == 1 and width / 2 or column == 2 and width or 0)
+      y = pers.pos[2] - (row == 0 and height or row == 1 and height / 2 or 0)
+      work.text = Core.remove_tag_names work.text, {"an", "pos", "move"}
+      work.text = Core.insert_leading_tags work.text, "\\an7\\pos(#{Core.format_num x, 4},#{Core.format_num y, 4})"
+      call = ZF.line(work)\prepoc dlg
+      pers = dlg\getPerspectiveTags work
+      align = 7
+  {:work, :call, :pers, :align, :source_align}
 
 Core.anchor_point_from_align = (align, bounds) ->
   left, top, right, bottom = unpack Core.normalize_bounds bounds
-  an = Core.align_for_line {text: "\\an#{tonumber(align) or 5}"}
+  an = math.floor tonumber(align) or 5
+  an = 5 unless an >= 1 and an <= 9
   h = (an - 1) % 3
   v = math.floor (an - 1) / 3
   x = if h == 0 then left elseif h == 1 then (left + right) / 2 else right
@@ -1681,21 +1811,22 @@ Core.anchor_point_from_align = (align, bounds) ->
 
 Core.rescale_text_dimensions = (line, fx, fy, opts) ->
   text = line.text or ""
+  state = Core.effective_line_state line
   fu = math.sqrt math.max(fx * fy, 0)
   fu = (fx + fy) / 2 if fu == 0
   if opts.adj_fscx
-    base = Core.numeric_tag_value text, "fscx", Core.line_scale_default(line, "x")
+    base = Core.line_tag_value line, "fscx", "scale_x", 100, state
     text = Core.scale_existing_numeric_tag text, "fscx", fx, base
   if opts.adj_fscy
-    base = Core.numeric_tag_value text, "fscy", Core.line_scale_default(line, "y")
+    base = Core.line_tag_value line, "fscy", "scale_y", 100, state
     text = Core.scale_existing_numeric_tag text, "fscy", fy, base
-  text = Core.scale_existing_numeric_tag text, "fsp", fx, Core.style_value(line, "spacing", 0) if opts.adj_fsp
+  text = Core.scale_existing_numeric_tag text, "fsp", fx, Core.style_value(line, "spacing", 0, state) if opts.adj_fsp
   if opts.adj_bord
-    text = Core.scale_existing_numeric_tag text, "bord", fu, Core.style_value(line, "outline", 0)
+    text = Core.scale_existing_numeric_tag text, "bord", fu, Core.style_value(line, "outline", 0, state)
     text = Core.scale_existing_numeric_tag text, "xbord", fx
     text = Core.scale_existing_numeric_tag text, "ybord", fy
   if opts.adj_shad
-    text = Core.scale_existing_numeric_tag text, "shad", fu, Core.style_value(line, "shadow", 0)
+    text = Core.scale_existing_numeric_tag text, "shad", fu, Core.style_value(line, "shadow", 0, state)
     text = Core.scale_existing_numeric_tag text, "xshad", fx
     text = Core.scale_existing_numeric_tag text, "yshad", fy
   if opts.adj_blur
@@ -1720,7 +1851,8 @@ Core.rescale_line_by_rectangle_clip = (dlg, line, opts) ->
     fx, fy = f, f
   text = Core.rescale_text_dimensions line, fx, fy, opts
   if opts.recenter and not text\find "\\move%("
-    anchor = Core.anchor_point_from_align Core.align_for_line(line), rect
+    align = shape.align or Core.align_for_line line
+    anchor = Core.anchor_point_from_align align, rect
     text = Core.replace_pos_or_insert text, anchor.x, anchor.y
   text = Core.strip_clip_tags text if opts.remove_clip
   text, nil, {fx: fx, fy: fy, rect: rect, text_w: shape.w, text_h: shape.h}
@@ -1731,7 +1863,8 @@ Core.transform_clip_ruler_text = (line, seg1, seg2, opts) ->
   ratio = d2 / d1
   axis = opts.axis == "y" and "y" or "x"
   scale_tag = axis == "y" and "fscy" or "fscx"
-  base = Core.numeric_tag_value(line.text, scale_tag, Core.line_scale_default(line, axis))
+  style_key = axis == "y" and "scale_y" or "scale_x"
+  base = Core.line_tag_value line, scale_tag, style_key, 100
   start_tags = "\\" .. scale_tag .. Core.format_num(base, 4)
   final_tags = "\\" .. scale_tag .. Core.format_num(base * ratio, 4)
   if opts.angle_mode == "first angle" or opts.angle_mode == "transform angle"
@@ -1956,7 +2089,7 @@ Core.replace_or_insert_parenthesized_tag = (text, name, payload) ->
     i = 1
     while i <= #inner
       if inner\sub(i, i) == "\\"
-        tag_name = inner\sub(i + 1)\match "^[1-4]?%a+"
+        tag_name = Core.tag_name_at inner, i
         if tag_name
           value_pos = i + 1 + #tag_name
           if inner\sub(value_pos, value_pos) == "("
@@ -2049,9 +2182,10 @@ Core.op_clip_to_fax = (subs, sel, opts) ->
     line = subs[i]
     seg = Core.first_segment_for_line line
     continue unless seg
-    frz = Core.numeric_tag_value(line.text, "frz", Core.style_value(line, "angle", 0)) or 0
-    scx = Core.numeric_tag_value(line.text, "fscx", Core.style_value(line, "scale_x", 100)) or 100
-    scy = Core.numeric_tag_value(line.text, "fscy", Core.style_value(line, "scale_y", 100)) or 100
+    state = Core.effective_line_state line
+    frz = Core.line_tag_value(line, "frz", "angle", 0, state) or 0
+    scx = Core.line_tag_value(line, "fscx", "scale_x", 100, state) or 100
+    scy = Core.line_tag_value(line, "fscy", "scale_y", 100, state) or 100
     ratio = if scy == 0 then 1 else scx / scy
     line_angle = Core.segment_frz seg
     fax = math.tan(math.rad(line_angle - frz)) / ratio
@@ -2076,9 +2210,10 @@ Core.op_clip_to_fay = (subs, sel, opts) ->
     line = subs[i]
     seg = Core.first_segment_for_line line
     continue unless seg
-    frz = Core.numeric_tag_value(line.text, "frz", Core.style_value(line, "angle", 0)) or 0
-    scx = Core.numeric_tag_value(line.text, "fscx", Core.style_value(line, "scale_x", 100)) or 100
-    scy = Core.numeric_tag_value(line.text, "fscy", Core.style_value(line, "scale_y", 100)) or 100
+    state = Core.effective_line_state line
+    frz = Core.line_tag_value(line, "frz", "angle", 0, state) or 0
+    scx = Core.line_tag_value(line, "fscx", "scale_x", 100, state) or 100
+    scy = Core.line_tag_value(line, "fscy", "scale_y", 100, state) or 100
     ratio = if scy == 0 then 1 else scx / scy
     line_angle = Core.segment_frz seg
     fay = math.tan(math.rad(line_angle + 90 - frz)) * ratio
@@ -2392,22 +2527,17 @@ Core.op_expand_clip_margin = (subs, sel, opts) ->
 
 Core.build_text_bounds = (dlg, source_line, opts) ->
   return nil unless ZF
-  line = Core.copy_line source_line
-  line.styleref = Core.copy_style line.styleref if line.styleref
-  line.styleRef = Core.copy_style line.styleRef if line.styleRef
-  line.text = Core.strip_clip_tags line.text
-  call = ZF.line(line)\prepoc dlg
-  pers = dlg\getPerspectiveTags line
+  prepared = Core.prepare_zf_text_line dlg, source_line
+  line, call, pers, align = prepared.work, prepared.call, prepared.pers, prepared.align
   return nil unless pers and pers.pos
   px, py = pers.pos[1], pers.pos[2]
   shape = ZF.util\isShape line.text
   unless shape
-    shape = call\toShape dlg, nil, px, py
+    shape = call\toShape dlg, align, px, py
     if line.styleref
       line.styleref.scale_x = 100
       line.styleref.scale_y = 100
   return nil unless shape
-  align = line.styleref and line.styleref.align or 7
   expanded = ZF.shape(shape, true)\setPosition(align)\expand(line, pers)\move(px, py)\build!
   simplified = Core.trim ZF.clipper(expanded)\simplify!\build "line", math.max(1, tonumber(opts.tolerance) or 1)
   shape_info = Core.shape_info simplified
@@ -2421,28 +2551,24 @@ Core.build_text_bounds = (dlg, source_line, opts) ->
     b: bounds[4]
     w: bounds[3] - bounds[1]
     h: bounds[4] - bounds[2]
+    align: prepared.source_align
     shape: shape_info
     path: simplified
   }
 
 Core.shape_outline_path = (dlg, source_line, opts = {}) ->
   return nil unless ZF
-  work = Core.copy_line source_line
-  work.styleref = Core.copy_style work.styleref if work.styleref
-  work.styleRef = Core.copy_style work.styleRef if work.styleRef
-  work.text = Core.strip_clip_tags work.text if opts.drop_clip != false
-  call = ZF.line(work)\prepoc dlg
-  pers = dlg\getPerspectiveTags work
+  prepared = Core.prepare_zf_text_line dlg, source_line, opts.drop_clip != false
+  work, call, pers, align = prepared.work, prepared.call, prepared.pers, prepared.align
   return nil unless pers and pers.pos
   px, py = pers.pos[1], pers.pos[2]
   shape = ZF.util\isShape work.text
   unless shape
-    shape = call\toShape dlg, nil, px, py
+    shape = call\toShape dlg, align, px, py
     if work.styleref
       work.styleref.scale_x = 100
       work.styleref.scale_y = 100
   return nil unless shape
-  align = work.styleref and work.styleref.align or 7
   close_paths = opts.close_paths != false
   path = Core.trim ZF.shape(shape, close_paths)\setPosition(align)\expand(work, pers)\move(px, py)\build!
   margin = tonumber(opts.margin) or 0
@@ -2450,14 +2576,14 @@ Core.shape_outline_path = (dlg, source_line, opts = {}) ->
   Core.simplify_vector_path path, opts.tolerance, close_paths
 
 Core.style_safe_pad = (line) ->
-  text = line.text or ""
-  bord = Core.numeric_tag_value(text, "bord", Core.style_value(line, "outline", 0)) or 0
-  xbord = Core.numeric_tag_value(text, "xbord", 0) or 0
-  ybord = Core.numeric_tag_value(text, "ybord", 0) or 0
-  shad = Core.numeric_tag_value(text, "shad", Core.style_value(line, "shadow", 0)) or 0
-  xshad = Core.numeric_tag_value(text, "xshad", 0) or 0
-  yshad = Core.numeric_tag_value(text, "yshad", 0) or 0
-  blur = Core.numeric_tag_value(text, "blur", 0) or 0
+  state = Core.effective_line_state line
+  bord = Core.line_tag_value(line, "bord", "outline", 0, state) or 0
+  xbord = Core.line_tag_value(line, "xbord", nil, bord, state) or bord
+  ybord = Core.line_tag_value(line, "ybord", nil, bord, state) or bord
+  shad = Core.line_tag_value(line, "shad", "shadow", 0, state) or 0
+  xshad = Core.line_tag_value(line, "xshad", nil, shad, state) or shad
+  yshad = Core.line_tag_value(line, "yshad", nil, shad, state) or shad
+  blur = Core.line_tag_value(line, "blur", nil, 0, state) or 0
   math.max(bord, xbord, ybord) + math.max(math.abs(shad), math.abs(xshad), math.abs(yshad)) + math.abs(blur) * 2
 
 Core.section_from_mode = (mode, opts, old_bounds, text_bounds) ->
@@ -2598,8 +2724,13 @@ Core.expand_quad_screen = (quad, margin) ->
 Core.line_needs_projected_quad = (line) ->
   text = if line then tostring(line.text or "") else ""
   return true if text\find "\\p[1-9]"
-  for pattern in *{"\\frx", "\\fry", "\\frz", "\\fr", "\\fax", "\\fay", "\\fscx", "\\fscy", "\\xbord", "\\ybord", "\\xshad", "\\yshad", "\\org"}
-    return true if text\find pattern, 1, true
+  state = Core.effective_line_state line
+  angle = Core.line_tag_value line, "frz", nil, nil, state
+  angle = Core.line_tag_value(line, "fr", "angle", 0, state) if angle == nil
+  return true if math.abs(tonumber(angle) or 0) > 0.000001
+  for tag in *{"frx", "fry", "fax", "fay"}
+    value = Core.line_tag_value line, tag, nil, 0, state
+    return true if math.abs(tonumber(value) or 0) > 0.000001
   false
 
 Core.baked_geometry_tags = ->
@@ -2783,7 +2914,7 @@ Core.shape_to_clip_line = (dlg, line) ->
   pers = dlg\getPerspectiveTags work
   return nil unless pers and pers.pos
   px, py = pers.pos[1], pers.pos[2]
-  align = work.styleref and work.styleref.align or 7
+  align = Core.zf_align_for_line work
   clip = ZF.shape(shape, true)\setPosition(align)\expand(work, pers)\move(px, py)\build!
   clip_tag = "\\clip(#{clip})"
   text = Core.strip_clip_tags work.text
@@ -3454,11 +3585,15 @@ PerspectiveTools.default_position = (line, style = nil) ->
   meta = line and line.parentCollection and line.parentCollection.meta or {}
   play_x = tonumber(meta.PlayResX or meta.playresx or meta.res_x) or 1920
   play_y = tonumber(meta.PlayResY or meta.playresy or meta.res_y) or 1080
-  style = style or PerspectiveTools.style(line and (line.styleRef or line.styleref), line and line.style or "Default")
-  align = PerspectiveTools.align_value(Core.numeric_tag_value(line and line.text or "", "an", style.align or 5), style.align or 5)
-  ml = tonumber(line and line.margin_l) or tonumber(style.margin_l) or 0
-  mr = tonumber(line and line.margin_r) or tonumber(style.margin_r) or 0
-  mv = tonumber(line and (line.margin_t or line.margin_v)) or tonumber(style.margin_t or style.margin_v) or 0
+  state = Core.effective_line_state line
+  style = style or PerspectiveTools.style(state.style, line and line.style or "Default")
+  align = PerspectiveTools.align_value(Core.line_tag_value(line, "an", "align", style.align or 5, state), style.align or 5)
+  ml = tonumber line and line.margin_l
+  mr = tonumber line and line.margin_r
+  mv = tonumber line and (line.margin_t or line.margin_v)
+  ml = tonumber(style.margin_l) or 0 if not ml or ml == 0
+  mr = tonumber(style.margin_r) or 0 if not mr or mr == 0
+  mv = tonumber(style.margin_t or style.margin_v) or 0 if not mv or mv == 0
   x = if align == 1 or align == 4 or align == 7
     ml
   elseif align == 3 or align == 6 or align == 9
@@ -3546,56 +3681,72 @@ PerspectiveTools.shape_extents = (text) ->
   math.max(maxx - minx, 0.01), math.max(maxy - miny, 0.01)
 
 PerspectiveTools.measure_style = (line, style) ->
-  out = PerspectiveTools.style style, line and line.style or "Default"
-  head = tostring(line and line.text or "")\match "^{(.-)}" or ""
-  for raw in head\gmatch "\\fs(" .. NUM_PATTERN .. ")"
-    out.fontsize = tonumber(raw) or out.fontsize
-  for raw in head\gmatch "\\fscx(" .. NUM_PATTERN .. ")"
-    out.scale_x = tonumber(raw) or out.scale_x
-  for raw in head\gmatch "\\fscy(" .. NUM_PATTERN .. ")"
-    out.scale_y = tonumber(raw) or out.scale_y
-  for raw in head\gmatch "\\fsp(" .. NUM_PATTERN .. ")"
-    out.spacing = tonumber(raw) or out.spacing
-  for name in head\gmatch "\\fn([^\\}]*)"
-    out.fontname = name if name and name != ""
-  for raw in head\gmatch "\\b([01])"
-    out.bold = raw == "1"
-  for raw in head\gmatch "\\i([01])"
-    out.italic = raw == "1"
+  state = Core.effective_line_state line
+  base_style = if state and state.style and next(state.style) then state.style else style
+  out = PerspectiveTools.style base_style, line and line.style or "Default"
+  out.fontsize = Core.line_tag_value(line, "fs", "fontsize", out.fontsize, state) or out.fontsize
+  out.scale_x = Core.line_tag_value(line, "fscx", "scale_x", out.scale_x, state) or out.scale_x
+  out.scale_y = Core.line_tag_value(line, "fscy", "scale_y", out.scale_y, state) or out.scale_y
+  out.spacing = Core.line_tag_value(line, "fsp", "spacing", out.spacing, state) or out.spacing
+  unless state.tag_list and state.style
+    for block in *Core.override_block_spans(line and line.text or "")
+      continue unless Core.looks_like_override block.inner
+      for name in block.inner\gmatch "\\fn([^\\}]*)"
+        out.fontname = name if name and name != ""
+  for item in *{{"b", "bold"}, {"i", "italic"}, {"u", "underline"}, {"s", "strikeout"}}
+    value = Core.line_tag_value line, item[1], nil, nil, state
+    out[item[2]] = value != 0 if value != nil
   out
+
+PerspectiveTools.point_value = (value) ->
+  return nil unless type(value) == "table"
+  return PerspectiveTools.point_value value.startPos if value.startPos
+  x = tonumber(value.x or value[1])
+  y = tonumber(value.y or value[2])
+  return {x: x, y: y} if x and y
+  if value.getTagParams
+    ok, px, py = pcall -> value\getTagParams!
+    x, y = tonumber(px), tonumber(py) if ok
+    return {x: x, y: y} if x and y
+  nil
 
 PerspectiveTools.point_from_tag = (text, name) ->
   pattern = "\\" .. name .. "%(%s*(" .. NUM_PATTERN .. ")%s*,%s*(" .. NUM_PATTERN .. ")%s*%)"
+  point = nil
   for x, y in tostring(text or "")\gmatch pattern
-    return {x: tonumber(x), y: tonumber(y)} if tonumber(x) and tonumber(y)
-  nil
+    point = {x: tonumber(x), y: tonumber(y)} if tonumber(x) and tonumber(y)
+  point
 
 PerspectiveTools.move_start = (text) ->
   pattern = "\\move%(%s*(" .. NUM_PATTERN .. ")%s*,%s*(" .. NUM_PATTERN .. ")%s*,%s*(" .. NUM_PATTERN .. ")%s*,%s*(" .. NUM_PATTERN .. ")"
+  point = nil
   for x1, y1 in tostring(text or "")\gmatch pattern
-    return {x: tonumber(x1), y: tonumber(y1)} if tonumber(x1) and tonumber(y1)
-  nil
+    point = {x: tonumber(x1), y: tonumber(y1)} if tonumber(x1) and tonumber(y1)
+  point
 
 PerspectiveTools.raw_tags = (line) ->
-  style = PerspectiveTools.style(line and (line.styleRef or line.styleref), line and line.style or "Default")
+  state = Core.effective_line_state line
+  style = PerspectiveTools.measure_style line, PerspectiveTools.style(state.style, line and line.style or "Default")
   text = tostring(line and line.text or "")
+  bord = Core.line_tag_value(line, "bord", "outline", style.outline or 0, state)
+  shad = Core.line_tag_value(line, "shad", "shadow", style.shadow or 0, state)
   tags = {
-    align: PerspectiveTools.dim_tag Core.numeric_tag_value(text, "an", style.align or 5)
-    scale_x: PerspectiveTools.dim_tag Core.numeric_tag_value(text, "fscx", style.scale_x or 100)
-    scale_y: PerspectiveTools.dim_tag Core.numeric_tag_value(text, "fscy", style.scale_y or 100)
-    angle: PerspectiveTools.dim_tag Core.numeric_tag_value(text, "frz", Core.numeric_tag_value(text, "fr", style.angle or 0))
-    angle_x: PerspectiveTools.dim_tag Core.numeric_tag_value(text, "frx", 0)
-    angle_y: PerspectiveTools.dim_tag Core.numeric_tag_value(text, "fry", 0)
-    shear_x: PerspectiveTools.dim_tag Core.numeric_tag_value(text, "fax", 0)
-    shear_y: PerspectiveTools.dim_tag Core.numeric_tag_value(text, "fay", 0)
-    fontsize: PerspectiveTools.dim_tag Core.numeric_tag_value(text, "fs", style.fontsize or 20)
-    outline_x: PerspectiveTools.dim_tag Core.numeric_tag_value(text, "xbord", Core.numeric_tag_value(text, "bord", style.outline or 0))
-    outline_y: PerspectiveTools.dim_tag Core.numeric_tag_value(text, "ybord", Core.numeric_tag_value(text, "bord", style.outline or 0))
-    shadow_x: PerspectiveTools.dim_tag Core.numeric_tag_value(text, "xshad", Core.numeric_tag_value(text, "shad", style.shadow or 0))
-    shadow_y: PerspectiveTools.dim_tag Core.numeric_tag_value(text, "yshad", Core.numeric_tag_value(text, "shad", style.shadow or 0))
+    align: PerspectiveTools.dim_tag Core.line_tag_value(line, "an", "align", style.align or 5, state)
+    scale_x: PerspectiveTools.dim_tag Core.line_tag_value(line, "fscx", "scale_x", style.scale_x or 100, state)
+    scale_y: PerspectiveTools.dim_tag Core.line_tag_value(line, "fscy", "scale_y", style.scale_y or 100, state)
+    angle: PerspectiveTools.dim_tag Core.line_tag_value(line, "frz", "angle", style.angle or 0, state)
+    angle_x: PerspectiveTools.dim_tag Core.line_tag_value(line, "frx", nil, 0, state)
+    angle_y: PerspectiveTools.dim_tag Core.line_tag_value(line, "fry", nil, 0, state)
+    shear_x: PerspectiveTools.dim_tag Core.line_tag_value(line, "fax", nil, 0, state)
+    shear_y: PerspectiveTools.dim_tag Core.line_tag_value(line, "fay", nil, 0, state)
+    fontsize: PerspectiveTools.dim_tag Core.line_tag_value(line, "fs", "fontsize", style.fontsize or 20, state)
+    outline_x: PerspectiveTools.dim_tag Core.line_tag_value(line, "xbord", nil, bord, state)
+    outline_y: PerspectiveTools.dim_tag Core.line_tag_value(line, "ybord", nil, bord, state)
+    shadow_x: PerspectiveTools.dim_tag Core.line_tag_value(line, "xshad", nil, shad, state)
+    shadow_y: PerspectiveTools.dim_tag Core.line_tag_value(line, "yshad", nil, shad, state)
   }
-  pos = PerspectiveTools.point_from_tag(text, "pos") or PerspectiveTools.move_start(text) or PerspectiveTools.default_position(line, style)
-  org = PerspectiveTools.point_from_tag(text, "org") or pos
+  pos = PerspectiveTools.point_value(state.tags.position) or PerspectiveTools.point_value(state.tags.move) or PerspectiveTools.point_from_tag(text, "pos") or PerspectiveTools.move_start(text) or PerspectiveTools.default_position(line, style)
+  org = PerspectiveTools.point_value(state.tags.origin) or PerspectiveTools.point_from_tag(text, "org") or pos
   tags.position = {x: pos.x, y: pos.y}
   tags.origin = {x: org.x, y: org.y}
   tags
@@ -3626,46 +3777,59 @@ PerspectiveTools.text_len = (text) ->
     count = #text
   count
 
-PerspectiveTools.rough_text_extents = (line, style) ->
-  fs = tonumber(style and style.fontsize) or Core.numeric_tag_value(line and line.text or "", "fs", 20) or 20
+PerspectiveTools.rough_text_extents = (line, style, state = nil) ->
+  state or= Core.effective_line_state line
+  fs = Core.line_tag_value(line, "fs", "fontsize", tonumber(style and style.fontsize) or 20, state) or 20
+  sx = Core.line_tag_value(line, "fscx", "scale_x", tonumber(style and style.scale_x) or 100, state) or 100
+  sy = Core.line_tag_value(line, "fscy", "scale_y", tonumber(style and style.scale_y) or 100, state) or 100
+  spacing = Core.line_tag_value(line, "fsp", "spacing", tonumber(style and style.spacing) or 0, state) or 0
   max_w, total_h = 0, 0
   for piece in *PerspectiveTools.visible_lines(line and line.text or "")
-    max_w = math.max max_w, PerspectiveTools.text_len(piece) * fs * 0.4042
-    total_h += fs
+    count = PerspectiveTools.text_len piece
+    raw_width = count * fs * 0.4042 + math.max(count - 1, 0) * spacing
+    max_w = math.max max_w, raw_width * sx / 100
+    total_h += fs * sy / 100
   math.max(max_w, 0.01), math.max(total_h, 0.01)
 
 PerspectiveTools.text_extents = (line, tags = nil) ->
-  style = PerspectiveTools.measure_style line, PerspectiveTools.style(line and (line.styleRef or line.styleref), line and line.style or "Default")
+  state = Core.effective_line_state line
+  style = PerspectiveTools.measure_style line, PerspectiveTools.style(state.style, line and line.style or "Default")
   w, h = PerspectiveTools.shape_extents line and line.text
   unless PerspectiveTools.valid_dim(w) and PerspectiveTools.valid_dim(h)
     clean = Core.visible_text(Core.strip_clip_tags(line and line.text or ""))\gsub("\\[Nn]", "\n")
     return 100, 100 if Core.trim(clean) == ""
+    has_linebreak = tostring(line and line.text or "")\find("\\N", 1, true) or tostring(line and line.text or "")\find("\\n", 1, true)
+    if not has_linebreak and state.data and state.data.getTextExtents
+      ok, ew, eh = pcall -> state.data\getTextExtents!
+      if ok and PerspectiveTools.valid_dim(ew) and PerspectiveTools.valid_dim(eh)
+        w, h = ew, eh
     if aegisub and type(aegisub.text_extents) == "function"
-      max_w, total_h, measured = 0, 0, false
-      for piece in *PerspectiveTools.visible_lines(line and line.text or "")
-        sample = if piece == "" then " " else piece
-        ok, ew, eh = pcall aegisub.text_extents, style, sample
-        if ok and PerspectiveTools.valid_dim(ew) and PerspectiveTools.valid_dim(eh)
-          measured = true
-          max_w = math.max max_w, ew
-          total_h += eh
-      if measured
-        w, h = max_w, math.max(total_h, 0.01)
+      unless PerspectiveTools.valid_dim(w) and PerspectiveTools.valid_dim(h)
+        max_w, total_h, measured = 0, 0, false
+        for piece in *PerspectiveTools.visible_lines(line and line.text or "")
+          sample = if piece == "" then " " else piece
+          ok, ew, eh = pcall aegisub.text_extents, style, sample
+          if ok and PerspectiveTools.valid_dim(ew) and PerspectiveTools.valid_dim(eh)
+            measured = true
+            max_w = math.max max_w, ew
+            total_h += eh
+        if measured
+          w, h = max_w, math.max(total_h, 0.01)
   unless PerspectiveTools.valid_dim(w) and PerspectiveTools.valid_dim(h)
-    w, h = PerspectiveTools.rough_text_extents line, style
-  sx = PerspectiveTools.tag_value(tags and tags.scale_x, style.scale_x or 100)
-  sy = PerspectiveTools.tag_value(tags and tags.scale_y, style.scale_y or 100)
+    w, h = PerspectiveTools.rough_text_extents line, style, state
+  sx = PerspectiveTools.tag_value(tags and tags.scale_x, Core.line_tag_value(line, "fscx", "scale_x", style.scale_x or 100, state))
+  sy = PerspectiveTools.tag_value(tags and tags.scale_y, Core.line_tag_value(line, "fscy", "scale_y", style.scale_y or 100, state))
   w /= sx / 100 if PerspectiveTools.valid_dim sx
   h /= sy / 100 if PerspectiveTools.valid_dim sy
   unless PerspectiveTools.valid_dim(w) and PerspectiveTools.valid_dim(h)
-    w, h = PerspectiveTools.rough_text_extents line, style
+    w, h = PerspectiveTools.rough_text_extents line, style, state
   math.max(w, 0.01), math.max(h, 0.01)
 
 PerspectiveTools.normalize_perspective_tags = (tags, line) ->
   return nil unless type(tags) == "table"
   style_ref = if line then (line.styleRef or line.styleref) else nil
   style_name = if line then line.style or "Default" else "Default"
-  style = PerspectiveTools.style(style_ref, style_name)
+  style = PerspectiveTools.measure_style line, PerspectiveTools.style(style_ref, style_name)
   PerspectiveTools.ensure_align_tag(tags, style.align or 5)
   for item in *{
     {"scale_x", style.scale_x or 100}
@@ -4356,28 +4520,27 @@ Core.action_picker_gui = (operation) ->
   gui, to_raw, to_shown
 
 Core.action_picker = ->
-  current = DEFAULTS.operation
-  while true
-    Core.load_language!
-    gui, to_raw, to_shown = Core.action_picker_gui current
-    options = Core.read_configured_gui "main", gui
-    current = Core.raw_operation_choice to_raw, Core.control_value(gui, "operation", Core.shown_choice(to_shown, current))
-    gui[2].value = Core.shown_choice to_shown, current
-    gui[3].value = Core.picker_help_text current
-    btn_run, btn_help, btn_language, btn_cancel = Core.L("run"), Core.L("help"), Core.L("language"), Core.L("cancel")
-    button, res = aegisub.dialog.display gui, {btn_run, btn_help, btn_language, btn_cancel}, {ok: btn_run, close: btn_cancel}
-    chosen = Core.raw_operation_choice to_raw, res and res.operation or current
-    if button == btn_help
-      Core.save_configured_gui options, {operation: chosen}, "main"
-      current = chosen
-    elseif button == btn_language
-      current = chosen
-      Core.toggle_language!
-    elseif button == btn_run
-      Core.save_configured_gui options, res, "main"
-      return chosen or DEFAULTS.operation
-    else
-      aegisub.cancel!
+  Core.UI.chooseAction {
+    current: DEFAULTS.operation
+    build: (current) ->
+      Core.load_language!
+      gui, to_raw, to_shown = Core.action_picker_gui current
+      options = Core.read_configured_gui "main", gui
+      selected = Core.raw_operation_choice to_raw, Core.control_value(gui, "operation", Core.shown_choice(to_shown, current))
+      gui[2].value = Core.shown_choice to_shown, selected
+      gui[3].value = Core.picker_help_text selected
+      gui, {to_raw: to_raw, options: options}
+    buttons: ->
+      run, help, language, cancel = Core.L("run"), Core.L("help"), Core.L("language"), Core.L("cancel")
+      {run: run, help: help, language: language, cancel: cancel, order: {run, help, language, cancel}}
+    read: (result, current, context) ->
+      Core.raw_operation_choice context.to_raw, result and result.operation or current
+    on_help: (chosen, _result, context) ->
+      Core.save_configured_gui context.options, {operation: chosen}, "main"
+    on_language: -> Core.toggle_language!
+    on_run: (_chosen, result, context) ->
+      Core.save_configured_gui context.options, result, "main"
+  }
 
 Core.action_help_picker = ->
   current = DEFAULTS.operation
@@ -4544,7 +4707,7 @@ Core.show_action_options = (operation) ->
       res.operation = operation
       return Core.normalize_options res
     else
-      aegisub.cancel!
+      return nil
 
 Core.dispatch = (subs, sel, active, opts) ->
   switch opts.operation
@@ -4592,12 +4755,17 @@ Core.run_operation = (subs, sel, active, operation) ->
     aegisub.cancel!
   Core.enrich_selected_lines subs, sel unless READ_ONLY_ACTIONS[operation]
   opts = Core.show_action_options operation
+  return nil unless opts
   ok = Core.dispatch subs, sel, active, opts
   aegisub.cancel! unless ok
+  ok
 
 Core.main = (subs, sel, active) ->
-  operation = Core.action_picker!
-  Core.run_operation subs, sel, active, operation
+  while true
+    operation = Core.action_picker!
+    return unless operation
+    result = Core.run_operation subs, sel, active, operation
+    return result if result != nil
 
 Core.validate = (subs, sel) -> sel and #sel > 0
 

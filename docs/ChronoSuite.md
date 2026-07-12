@@ -1,4 +1,4 @@
-# Chrono Suite 1.0.7
+# Chrono Suite 1.1.2
 
 Chrono Suite provides timing, audit, cleanup, data-import, and workflow tools.
 

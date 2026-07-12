@@ -1,7 +1,7 @@
 export script_name        = "Cope Optimizer"
 export script_description = "Optimize selected PNG2ASS color drawing lines by merging similar colors or reducing detected gradients."
 export script_author      = "Kiterow"
-export script_version     = "1.0.2"
+export script_version     = "1.0.3"
 export script_namespace   = "kite.CopeOptimizer"
 HOTKEY_MENU_ROOT = ": Kite Hotkeys :"
 HOTKEY_MENU_SCRIPT = "Cope Optimizer"
@@ -11,11 +11,27 @@ depctrl = nil
 if haveDepCtrl and DependencyControl
   depctrl = DependencyControl{
     feed: "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json",
+    {
+      {"kite.UI", version: "1.0.0", url: "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+        feed: "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"}
+    }
   }
+
+KiteUI = depctrl and depctrl\requireModules! or require "kite.UI"
 
 MODES = { "Auto", "Colores similares", "Gradiente completo" }
 INTENSITIES = { "Equilibrado", "Fidelidad", "Agresivo" }
 EPSILON = 0.000001
+
+COPE_SETTINGS = KiteUI.settings script_namespace, script_version, {
+  main: {
+    mode: "Auto"
+    intensity: "Equilibrado"
+    threshold: 0
+    max_bands: 8
+    show_summary: false
+  }
+}, {}
 
 copy_line = (line) ->
   out = {}
@@ -549,25 +565,27 @@ apply_report = (subs, sel, report) ->
     new_sel[#new_sel + 1] = insert_at
   new_sel
 
-build_dialog = ->
+build_dialog = (saved) ->
   {
     { class: "label", label: "Modo", x: 0, y: 0, width: 3, height: 1 }
-    { class: "dropdown", name: "mode", items: MODES, value: "Auto", x: 3, y: 0, width: 6, height: 1 }
+    { class: "dropdown", name: "mode", items: MODES, value: saved.mode, x: 3, y: 0, width: 6, height: 1 }
     { class: "label", label: "Intensidad", x: 0, y: 1, width: 3, height: 1 }
-    { class: "dropdown", name: "intensity", items: INTENSITIES, value: "Equilibrado", x: 3, y: 1, width: 6, height: 1 }
+    { class: "dropdown", name: "intensity", items: INTENSITIES, value: saved.intensity, x: 3, y: 1, width: 6, height: 1 }
     { class: "label", label: "Umbral OKLab (0 = intensidad)", x: 0, y: 2, width: 4, height: 1 }
-    { class: "floatedit", name: "threshold", value: 0, min: 0, max: 0.25, step: 0.005, x: 4, y: 2, width: 3, height: 1 }
+    { class: "floatedit", name: "threshold", value: saved.threshold, min: 0, max: 0.25, step: 0.005, x: 4, y: 2, width: 3, height: 1 }
     { class: "label", label: "Bandas max.", x: 0, y: 3, width: 3, height: 1 }
-    { class: "intedit", name: "max_bands", value: 8, min: 2, max: 64, x: 3, y: 3, width: 3, height: 1 }
-    { class: "checkbox", name: "show_summary", label: "Mostrar resumen antes de aplicar", value: false, x: 0, y: 4, width: 9, height: 1 }
+    { class: "intedit", name: "max_bands", value: saved.max_bands, min: 2, max: 64, x: 3, y: 3, width: 3, height: 1 }
+    { class: "checkbox", name: "show_summary", label: "Mostrar resumen antes de aplicar", value: saved.show_summary, x: 0, y: 4, width: 9, height: 1 }
   }
 
 main = (subs, sel) ->
   unless sel and #sel >= 2
     cancel_with "Selecciona al menos dos lineas PNG2ASS de dibujo."
 
-  button, res = aegisub.dialog.display build_dialog!, { "Execute", "Cancel" }, { ok: "Execute", close: "Cancel" }
+  button, res = aegisub.dialog.display build_dialog(COPE_SETTINGS\values "main"), { "Execute", "Cancel" }, { ok: "Execute", close: "Cancel" }
   return sel unless button == "Execute"
+  COPE_SETTINGS\update "main", res
+  COPE_SETTINGS\write!
   opts = normalize_options res
   report, err = analyze_selection subs, sel, opts
   cancel_with err unless report

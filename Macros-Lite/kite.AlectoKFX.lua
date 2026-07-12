@@ -1,7 +1,7 @@
 script_name = "Alecto KFX"
 script_description = "Karaoke por silaba con fases Intro, Active y Outro configurables por lineas comentadas"
 script_author = "Kiterow"
-script_version = "1.0.0"
+script_version = "1.0.1"
 script_namespace = "kite.AlectoKFX"
 local HOTKEY_MENU_ROOT = ": Kite Hotkeys :"
 local HOTKEY_MENU_SCRIPT = script_name
@@ -430,7 +430,7 @@ local function append_phase(output, base_ctx, phase, preset_id)
     local preset = PRESET_LOOKUP[phase][preset_id] or PRESET_LOOKUP[phase][DEFAULT_OPTIONS[phase .. "_fx"]]
     local ctx = phase_context(base_ctx, phase, preset.id)
     local ok, lines = pcall(preset.fn, ctx)
-    if not ok then error(script_name .. " preset '" .. phase .. ":" .. preset.id .. "' fallo: " .. tostring(lines)) end
+    if not ok then error("No se pudo generar una fase del efecto.", 0) end
     for _, line in ipairs(lines or {}) do output[#output + 1] = line end
 end
 
@@ -471,12 +471,11 @@ end
 
 local function preprocess_line(subs, meta, styles, line)
     if not karaskel or type(karaskel.preproc_line) ~= "function" then
-        return false, "karaskel no esta disponible."
+        return false
     end
 
-    local ok, err = pcall(karaskel.preproc_line, subs, meta, styles, line)
-    if not ok then return false, tostring(err) end
-    return true, nil
+    local ok = pcall(karaskel.preproc_line, subs, meta, styles, line)
+    return ok
 end
 
 function HWF.run(subs, sel)
@@ -495,7 +494,7 @@ function HWF.run(subs, sel)
 
     local ok_head, meta, styles = pcall(karaskel.collect_head, subs, false)
     if not ok_head then
-        show_message(script_name, "karaskel.collect_head fallo:\n" .. tostring(meta))
+        show_message(script_name, "No se pudo leer la informacion de estilos del subtitulo.")
         return
     end
 
@@ -506,12 +505,17 @@ function HWF.run(subs, sel)
     local changed = 0
     local skipped = 0
     local errors = {}
+    local plans = {}
+    local cancelled = false
 
     for n, idx in ipairs(targets) do
         if aegisub and aegisub.progress then
             aegisub.progress.set(n / #targets * 100)
             aegisub.progress.task(script_name .. ": linea " .. tostring(n) .. "/" .. tostring(#targets))
-            if aegisub.progress.is_cancelled and aegisub.progress.is_cancelled() then break end
+            if aegisub.progress.is_cancelled and aegisub.progress.is_cancelled() then
+                cancelled = true
+                break
+            end
         end
 
         local line = subs[idx]
@@ -519,24 +523,33 @@ function HWF.run(subs, sel)
             skipped = skipped + 1
         else
             local source = copy_line(line)
-            local ok_pre, pre_err = preprocess_line(subs, meta, styles, source)
+            local ok_pre = preprocess_line(subs, meta, styles, source)
             if not ok_pre then
-                errors[#errors + 1] = "Linea " .. tostring(idx) .. ": " .. tostring(pre_err)
+                errors[#errors + 1] = "Linea " .. tostring(idx) .. ": no se pudo preparar la linea karaoke."
                 skipped = skipped + 1
             else
-                local generated = HWF.generate_from_preprocessed_line(source, source.styleref, options)
-                if #generated == 0 then
+                local ok_generate, generated = pcall(HWF.generate_from_preprocessed_line, source, source.styleref, options)
+                if not ok_generate then
+                    errors[#errors + 1] = "Linea " .. tostring(idx) .. ": no se pudo generar el efecto."
+                    skipped = skipped + 1
+                elseif #generated == 0 then
                     skipped = skipped + 1
                 else
-                    subs.delete(idx)
-                    for i = #generated, 1, -1 do
-                        subs.insert(idx, generated[i])
-                    end
-                    changed = changed + 1
+                    plans[#plans + 1] = { index = idx, lines = generated }
                 end
             end
         end
     end
+
+    if cancelled then return end
+
+    for _, plan in ipairs(plans) do
+        subs.delete(plan.index)
+        for i = #plan.lines, 1, -1 do
+            subs.insert(plan.index, plan.lines[i])
+        end
+    end
+    changed = #plans
 
     if changed > 0 and aegisub and aegisub.set_undo_point then
         aegisub.set_undo_point(script_name)

@@ -4,7 +4,7 @@ local depctrl
 if DependencyControl then
     depctrl = DependencyControl({
         name = "Timing",
-        version = "1.0.1",
+        version = "1.0.2",
         description = "Voice-timing engines: multi-signal/waveform onset detection and legacy silence timing",
         author = "Kiterow",
         url = "https://github.com/Kitherow/Kite-Aegisub-Scripts",
@@ -1525,7 +1525,7 @@ function LZ.run(subs, sel, paths, opts)
 end
 
 local Timing = {
-    version = "1.0.0",
+    version = "1.0.2",
     round = round, clamp = clamp, lowerBound = lower_bound, overlapLen = overlap_len,
     visibleText = visible_text, utf8Len = utf8_len, readableChars = readable_chars,
     styleOk = style_ok, isSpoken = is_spoken, frameToMs = frame_to_ms,

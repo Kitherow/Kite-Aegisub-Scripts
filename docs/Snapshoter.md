@@ -1,4 +1,4 @@
-# Snapshoter 1.5.8
+# Snapshoter 1.5.9
 
 Snapshoter captures subtitle frames, frame lists, frame sequences, and clip crops from the loaded video.
 

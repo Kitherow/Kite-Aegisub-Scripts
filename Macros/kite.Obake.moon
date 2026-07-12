@@ -2,10 +2,10 @@ export script_name = "Obake"
 export script_description = "Build and maintain ASS transform/tag effects."
 export script_author = "Kiterow"
 export script_namespace = "kite.Obake"
-export script_version = "0.2.2"
+export script_version = "0.2.3"
 
 Core = {}
-local ASS, AMLine, ConfigHandler
+local ASS, AMLine
 
 DependencyControl = require "l0.DependencyControl"
 depctrl = DependencyControl{
@@ -15,11 +15,20 @@ depctrl = DependencyControl{
       feed: "https://raw.githubusercontent.com/TypesettingTools/ASSFoundation/master/DependencyControl.json"}
     {"a-mo.Line", version: "1.5.3", url: "https://github.com/TypesettingTools/Aegisub-Motion",
       feed: "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"}
-    {"a-mo.ConfigHandler", version: "1.1.4", url: "https://github.com/TypesettingTools/Aegisub-Motion",
-      feed: "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"}
+    {"kite.UI", version: "1.0.0", url: "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+      feed: "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"}
   }
 }
-ASS, AMLine, ConfigHandler = depctrl\requireModules!
+ASS, AMLine, Core.UI = depctrl\requireModules!
+
+Core.ConfigHandler = (interface, file_name, _has_sections, version) ->
+  storage = switch file_name
+    when "kite-gunfight.json" then "gunfight"
+    when "kite-obake-zigzag.json" then "zigzag"
+    else "language"
+  Core.UI.dialogHandler interface, script_namespace, version, {
+    {path: "?user/" .. file_name, format: "json_sections", section: "main", target: storage}
+  }, {main: storage}
 
 HOTKEY_MENU_ROOT = ": Kite Hotkeys :"
 HOTKEY_MENU_SCRIPT = "Obake"
@@ -439,7 +448,6 @@ GUN_DEFAULTS = {
   include_auto_blocks: false
   clamp_nonnegative: true
   protect_discrete: true
-  save_settings: true
   show_report: true
   fbf_period: 1
   selection_as_fbf_unit: true
@@ -448,6 +456,54 @@ GUN_DEFAULTS = {
 ZIGZAG_DEFAULTS = {
   period_frames: 3
 }
+
+Core.settings = Core.UI.settings script_namespace, script_version, {
+  main: {
+    operation: DEFAULTS.operation
+  }
+  chain: {
+    time_unit: DEFAULTS.time_unit
+    chain_shape: DEFAULTS.chain_shape
+    strip_existing: DEFAULTS.strip_existing
+    use_accel: DEFAULTS.use_accel
+    accel: DEFAULTS.accel
+    shape_val: DEFAULTS.shape_val
+    delay_mode: DEFAULTS.delay_mode
+    delay_val: DEFAULTS.delay_val
+    rows: {
+      {time: 0, tags: "\\fscx100\\fscy100"}
+      {time: 100, tags: "\\fscx110\\fscy110"}
+    }
+  }
+  fx: {
+    fx_preset: DEFAULTS.fx_preset
+    strip_existing: DEFAULTS.strip_existing
+    use_accel: DEFAULTS.use_accel
+    accel: DEFAULTS.accel
+    fx_step_ms: DEFAULTS.fx_step_ms
+    fx_amount: DEFAULTS.fx_amount
+    fx_color: DEFAULTS.fx_color
+    fx_color2: DEFAULTS.fx_color2
+  }
+  preset: {
+    cal_preset: DEFAULTS.cal_preset
+  }
+  border: {
+    use_bord1: DEFAULTS.use_bord1
+    bord1: DEFAULTS.bord1
+    color1: DEFAULTS.color1
+    use_bord2: DEFAULTS.use_bord2
+    bord2: DEFAULTS.bord2
+    color2: DEFAULTS.color2
+    use_bord3: DEFAULTS.use_bord3
+    bord3: DEFAULTS.bord3
+    color3: DEFAULTS.color3
+    use_bord4: DEFAULTS.use_bord4
+    bord4: DEFAULTS.bord4
+    color4: DEFAULTS.color4
+  }
+}, {}
+Core.settings\load!
 
 clone_line = (line) ->
   return nil unless type(line) == "table"
@@ -612,8 +668,8 @@ Core.config_interface = ->
   }
 
 Core.language_config = ->
-  return nil unless ConfigHandler
-  language_config_handler or= ConfigHandler Core.config_interface!, CONFIG_FILE, true, script_version
+  return nil unless Core.ConfigHandler
+  language_config_handler or= Core.ConfigHandler Core.config_interface!, CONFIG_FILE, true, script_version
   language_config_handler
 
 Core.load_language = ->
@@ -1676,7 +1732,7 @@ build_chain_gui = (state) ->
   gui, shape_map, delay_map
 
 show_chain_options = ->
-  state = normalize_chain_state {}
+  state = normalize_chain_state Core.settings\values "chain"
   while true
     gui, shape_map, delay_map = build_chain_gui state
     button, res = aegisub.dialog.display gui, {Core.L("apply"), "Add+", "Rem-", Core.L("reset"), Core.L("cancel")}, {ok: Core.L("apply"), close: Core.L("cancel")}
@@ -1696,6 +1752,8 @@ show_chain_options = ->
       when "Rem-"
         table.remove state.rows if #state.rows > 2
       when Core.L("apply")
+        Core.settings\update "chain", state
+        Core.settings\write!
         return state
 
 html_color_controls = (x, y, color1, color2 = nil) ->
@@ -1709,55 +1767,64 @@ html_color_controls = (x, y, color1, color2 = nil) ->
   out
 
 show_fx_options = ->
+  saved = Core.settings\values "fx"
   fx_items, fx_map, fx_shown = Core.dropdown_data FX_ITEMS
   gui = {
     {class: "label", label: "FX:", x: 0, y: 0, width: 2}
-    {class: "dropdown", name: "fx_preset", items: fx_items, value: Core.shown_choice(fx_shown, DEFAULTS.fx_preset), x: 2, y: 0, width: 8}
-    {class: "checkbox", name: "strip_existing", label: Core.L("strip_existing_t"), value: DEFAULTS.strip_existing, x: 0, y: 1, width: 6}
-    {class: "checkbox", name: "use_accel", label: Core.L("accel"), value: DEFAULTS.use_accel, x: 6, y: 1, width: 2}
-    {class: "floatedit", name: "accel", value: DEFAULTS.accel, min: 0.01, max: 10, x: 8, y: 1, width: 3}
+    {class: "dropdown", name: "fx_preset", items: fx_items, value: Core.shown_choice(fx_shown, saved.fx_preset), x: 2, y: 0, width: 8}
+    {class: "checkbox", name: "strip_existing", label: Core.L("strip_existing_t"), value: saved.strip_existing, x: 0, y: 1, width: 6}
+    {class: "checkbox", name: "use_accel", label: Core.L("accel"), value: saved.use_accel, x: 6, y: 1, width: 2}
+    {class: "floatedit", name: "accel", value: saved.accel, min: 0.01, max: 10, x: 8, y: 1, width: 3}
     {class: "label", label: Core.L("step_ms"), x: 0, y: 2, width: 2}
-    {class: "intedit", name: "fx_step_ms", value: DEFAULTS.fx_step_ms, min: 1, x: 2, y: 2, width: 3}
+    {class: "intedit", name: "fx_step_ms", value: saved.fx_step_ms, min: 1, x: 2, y: 2, width: 3}
     {class: "label", label: Core.L("amount"), x: 6, y: 2, width: 2}
-    {class: "floatedit", name: "fx_amount", value: DEFAULTS.fx_amount, x: 8, y: 2, width: 3}
+    {class: "floatedit", name: "fx_amount", value: saved.fx_amount, x: 8, y: 2, width: 3}
   }
-  for item in *html_color_controls 0, 4, DEFAULTS.fx_color, DEFAULTS.fx_color2
+  for item in *html_color_controls 0, 4, saved.fx_color, saved.fx_color2
     gui[#gui + 1] = item
   button, res = aegisub.dialog.display gui, {Core.L("apply"), Core.L("cancel")}, {ok: Core.L("apply"), close: Core.L("cancel")}
   return nil unless button == Core.L("apply")
   res.fx_preset = Core.raw_choice fx_map, res.fx_preset
+  Core.settings\update "fx", res
+  Core.settings\write!
   res.fx_color = html_to_ass res.fx_color
   res.fx_color2 = html_to_ass res.fx_color2
   res
 
 show_preset_options = ->
+  saved = Core.settings\values "preset"
   preset_items, preset_map, preset_shown = Core.dropdown_data CAL_PRESETS
   gui = {
     {class: "label", label: Core.L("preset"), x: 0, y: 0, width: 2}
-    {class: "dropdown", name: "cal_preset", items: preset_items, value: Core.shown_choice(preset_shown, DEFAULTS.cal_preset), x: 2, y: 0, width: 9}
+    {class: "dropdown", name: "cal_preset", items: preset_items, value: Core.shown_choice(preset_shown, saved.cal_preset), x: 2, y: 0, width: 9}
   }
   button, res = aegisub.dialog.display gui, {Core.L("apply"), Core.L("cancel")}, {ok: Core.L("apply"), close: Core.L("cancel")}
   return nil unless button == Core.L("apply")
   res.cal_preset = Core.raw_choice preset_map, res.cal_preset
+  Core.settings\update "preset", res
+  Core.settings\write!
   res
 
 show_border_options = ->
+  saved = Core.settings\values "border"
   gui = {
-    {class: "checkbox", name: "use_bord1", label: "B1", value: DEFAULTS.use_bord1, x: 0, y: 0, width: 2}
-    {class: "floatedit", name: "bord1", value: DEFAULTS.bord1, min: 0, x: 2, y: 0, width: 3}
-    {class: "color", name: "color1", value: DEFAULTS.color1, x: 5, y: 0, width: 2, height: 2}
-    {class: "checkbox", name: "use_bord2", label: "B2", value: DEFAULTS.use_bord2, x: 0, y: 2, width: 2}
-    {class: "floatedit", name: "bord2", value: DEFAULTS.bord2, min: 0, x: 2, y: 2, width: 3}
-    {class: "color", name: "color2", value: DEFAULTS.color2, x: 5, y: 2, width: 2, height: 2}
-    {class: "checkbox", name: "use_bord3", label: "B3", value: DEFAULTS.use_bord3, x: 0, y: 4, width: 2}
-    {class: "floatedit", name: "bord3", value: DEFAULTS.bord3, min: 0, x: 2, y: 4, width: 3}
-    {class: "color", name: "color3", value: DEFAULTS.color3, x: 5, y: 4, width: 2, height: 2}
-    {class: "checkbox", name: "use_bord4", label: "B4", value: DEFAULTS.use_bord4, x: 0, y: 6, width: 2}
-    {class: "floatedit", name: "bord4", value: DEFAULTS.bord4, min: 0, x: 2, y: 6, width: 3}
-    {class: "color", name: "color4", value: DEFAULTS.color4, x: 5, y: 6, width: 2, height: 2}
+    {class: "checkbox", name: "use_bord1", label: "B1", value: saved.use_bord1, x: 0, y: 0, width: 2}
+    {class: "floatedit", name: "bord1", value: saved.bord1, min: 0, x: 2, y: 0, width: 3}
+    {class: "color", name: "color1", value: saved.color1, x: 5, y: 0, width: 2, height: 2}
+    {class: "checkbox", name: "use_bord2", label: "B2", value: saved.use_bord2, x: 0, y: 2, width: 2}
+    {class: "floatedit", name: "bord2", value: saved.bord2, min: 0, x: 2, y: 2, width: 3}
+    {class: "color", name: "color2", value: saved.color2, x: 5, y: 2, width: 2, height: 2}
+    {class: "checkbox", name: "use_bord3", label: "B3", value: saved.use_bord3, x: 0, y: 4, width: 2}
+    {class: "floatedit", name: "bord3", value: saved.bord3, min: 0, x: 2, y: 4, width: 3}
+    {class: "color", name: "color3", value: saved.color3, x: 5, y: 4, width: 2, height: 2}
+    {class: "checkbox", name: "use_bord4", label: "B4", value: saved.use_bord4, x: 0, y: 6, width: 2}
+    {class: "floatedit", name: "bord4", value: saved.bord4, min: 0, x: 2, y: 6, width: 3}
+    {class: "color", name: "color4", value: saved.color4, x: 5, y: 6, width: 2, height: 2}
   }
   button, res = aegisub.dialog.display gui, {Core.L("apply"), Core.L("cancel")}, {ok: Core.L("apply"), close: Core.L("cancel")}
   return nil unless button == Core.L("apply")
+  Core.settings\update "border", res
+  Core.settings\write!
   res.color1 = html_to_ass res.color1
   res.color2 = html_to_ass res.color2
   res.color3 = html_to_ass res.color3
@@ -1789,7 +1856,6 @@ gun_build_interface = (found, state) ->
     fbf_period: {class: "intedit", name: "fbf_period", value: state.fbf_period, min: 1, max: 999, config: true, x: 13, y: 2, width: 3, height: 1}
     scope_label: {class: "label", label: "Link", x: 0, y: 3, width: 2, height: 1}
     random_scope: {class: "dropdown", name: "random_scope", items: GUN_RANDOM_SCOPES, value: gun_choice_or_default(state.random_scope, GUN_RANDOM_SCOPES, GUN_DEFAULTS.random_scope), config: true, x: 2, y: 3, width: 4, height: 1}
-    save_settings: {class: "checkbox", name: "save_settings", label: "Save", value: state.save_settings, config: true, x: 6, y: 3, width: 2, height: 1}
     show_report: {class: "checkbox", name: "show_report", label: "Report", value: state.show_report, config: true, x: 8, y: 3, width: 3, height: 1}
     selection_as_fbf_unit: {class: "checkbox", name: "selection_as_fbf_unit", label: Core.L("selection_as_fbf_unit"), value: state.selection_as_fbf_unit != false, config: true, x: 0, y: 4, width: 10, height: 1}
     use_x: {class: "checkbox", name: "use_x", label: "X coords", value: state.use_x, config: true, x: 0, y: 5, width: 2, height: 1}
@@ -1844,7 +1910,6 @@ gun_read_state_from_result = (result, found) ->
   state.include_auto_blocks = result.include_auto_blocks == true
   state.clamp_nonnegative = result.clamp_nonnegative == true
   state.protect_discrete = result.protect_discrete == true
-  state.save_settings = result.save_settings == true
   state.show_report = result.show_report == true
   state.fbf_period = math.max 1, round_int(result.fbf_period)
   state.selection_as_fbf_unit = result.selection_as_fbf_unit == true
@@ -1858,7 +1923,7 @@ show_gunfight_options = (subs, sel) ->
   cfg = nil
   while true
     interface = gun_build_interface found, GUN_DEFAULTS
-    options = ConfigHandler interface, GUN_CONFIG_FILE, true, GUN_CONFIG_VERSION
+    options = Core.ConfigHandler interface, GUN_CONFIG_FILE, true, GUN_CONFIG_VERSION
     options\read!
     options\updateInterface "main"
     state = gun_config_state interface
@@ -1881,10 +1946,9 @@ show_gunfight_options = (subs, sel) ->
       cfg = state
       break
     if cfg.include_auto_blocks == include_auto
-      if cfg.save_settings
-        options = ConfigHandler (gun_build_interface found, cfg), GUN_CONFIG_FILE, true, GUN_CONFIG_VERSION
-        options\updateConfiguration cfg, "main"
-        options\write!
+      options = Core.ConfigHandler (gun_build_interface found, cfg), GUN_CONFIG_FILE, true, GUN_CONFIG_VERSION
+      options\updateConfiguration cfg, "main"
+      options\write!
       cfg.operation = "Gunfight of Tags"
       return cfg
     include_auto = cfg.include_auto_blocks
@@ -1895,7 +1959,7 @@ show_zigzag_options = ->
     period_label: {class: "label", label: Core.L("zigzag_period"), x: 0, y: 0, width: 2}
     period_frames: {class: "intedit", name: "period_frames", value: ZIGZAG_DEFAULTS.period_frames, min: 1, max: 999, x: 2, y: 0, width: 2, config: true}
   }
-  options = ConfigHandler {main: gui}, ZIGZAG_CONFIG_FILE, true, script_version
+  options = Core.ConfigHandler {main: gui}, ZIGZAG_CONFIG_FILE, true, script_version
   options\read!
   options\updateInterface "main"
   button, res = aegisub.dialog.display gui, {Core.L("apply"), Core.L("cancel")}, {ok: Core.L("apply"), close: Core.L("cancel")}
@@ -1921,21 +1985,26 @@ Core.action_picker_gui = (operation) ->
   gui, to_raw, to_shown
 
 Core.action_picker = ->
-  current = DEFAULTS.operation
-  while true
-    gui, to_raw, to_shown = Core.action_picker_gui current
-    btn_run, btn_help, btn_language, btn_cancel = Core.L("run"), Core.L("help"), Core.L("language"), Core.L("cancel")
-    button, res = aegisub.dialog.display gui, {btn_run, btn_help, btn_language, btn_cancel}, {ok: btn_run, close: btn_cancel}
-    chosen = Core.raw_operation_choice to_raw, res and res.operation or current
-    if button == btn_help
-      current = chosen
-    elseif button == btn_language
+  saved = Core.settings\values "main"
+  save_operation = (chosen) ->
+    Core.settings\update "main", {operation: chosen}
+    Core.settings\write!
+  Core.UI.chooseAction {
+    current: saved.operation
+    build: (current) ->
+      gui, to_raw, _to_shown = Core.action_picker_gui current
+      gui, {to_raw: to_raw}
+    buttons: ->
+      run, help, language, cancel = Core.L("run"), Core.L("help"), Core.L("language"), Core.L("cancel")
+      {run: run, help: help, language: language, cancel: cancel, order: {run, help, language, cancel}}
+    read: (result, current, context) ->
+      Core.raw_operation_choice context.to_raw, result and result.operation or current
+    on_help: (chosen) -> save_operation chosen
+    on_language: (chosen) ->
+      save_operation chosen
       Core.toggle_language!
-      current = chosen
-    elseif button == btn_run
-      return chosen or DEFAULTS.operation
-    else
-      aegisub.cancel!
+    on_run: (chosen) -> save_operation chosen
+  }
 
 Core.action_help_picker = ->
   current = DEFAULTS.operation
@@ -2199,7 +2268,7 @@ preset_layers = (line, preset) ->
       border.layer = base
       stamp_marker border, "CAL", mid
       fill.text = strip_bord fill.text
-      fill.text = inject_first fill.text, tag_text("outline", 0)
+      fill.text = inject_first fill.text, "\\bord0"
       fill.layer = base + 1
       stamp_marker fill, "CAL", mid
       {border, fill}
@@ -2594,10 +2663,14 @@ Core.run_operation = (subs, sel, active, operation) ->
   opts.operation = operation
   ok = Core.dispatch subs, sel, active, operation, opts
   aegisub.cancel! unless ok
+  ok
 
 Core.main = (subs, sel, active) ->
-  operation = Core.action_picker!
-  Core.run_operation subs, sel, active, operation
+  while true
+    operation = Core.action_picker!
+    return unless operation
+    result = Core.run_operation subs, sel, active, operation
+    return result if result != nil
 
 Core.validate = (subs, sel) ->
   sel and #sel > 0

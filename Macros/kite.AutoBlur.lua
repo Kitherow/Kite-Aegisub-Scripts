@@ -1,7 +1,7 @@
 script_name = "Auto Blur"
 script_description = "Match a sign's \\blur to frame sharpness with fixed or tracked sample points and time-varying blur curves."
 script_author = "Kiterow"
-script_version = "2.0.2"
+script_version = "2.0.3"
 script_namespace = "kite.AutoBlur"
 local HOTKEY_MENU_ROOT = ": Kite Hotkeys :"
 local HOTKEY_MENU_SCRIPT = script_name
@@ -26,13 +26,39 @@ if DependencyControl then
         version = script_version,
         namespace = script_namespace,
         feed = "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json",
+        {
+            { "kite.UI", version = "1.0.0", url = "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+              feed = "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json" },
+        },
     })
     if okRecord then depctrl = record end
 end
 
+local KiteUI
+if depctrl and depctrl.requireModules then
+    local ok, module = pcall(function() return depctrl:requireModules() end)
+    if ok then KiteUI = module end
+end
+KiteUI = KiteUI or safeRequire("kite.UI")
+
 local DataWrapper = safeRequire("a-mo.DataWrapper")
 local clipboard = safeRequire("aegisub.clipboard")
 safeInclude("karaskel.lua")
+
+local AUTO_SETTINGS = KiteUI.settings(script_namespace, script_version, {
+    main = {
+        radius = 8,
+        max_blur = 5.0,
+        curve = 0.5,
+        quant_step = 0.25,
+        smooth = 5,
+        min_run = 3,
+        trans_ms = 0,
+        mode = "Discrete (RLE transitions)",
+        use_tracking = false,
+        remove_existing = true,
+    },
+}, {})
 
 local function clamp(v, lo, hi)
     if v < lo then return lo end
@@ -503,9 +529,8 @@ local function main(subs, sel)
     local clipboardData = readClipboardData()
     if not clipboardData:find("\n") then clipboardData = "" end
 
-    local btn, res = showDialog(initialCoord, clipboardData)
+    local btn, res = showDialog(initialCoord, clipboardData, AUTO_SETTINGS:values("main"))
     if btn ~= "Execute" then return end
-
     local cx, cy = res.coord:match("([%-%d%.]+),([%-%d%.]+)")
     if not cx then
         showError("Invalid coordinate. Format: x,y (e.g. 960,540).")
@@ -608,6 +633,8 @@ local function main(subs, sel)
     local newText = res.remove_existing and stripBlurFromFirstBlock(line.text) or line.text
     line.text = injectTransform(newText, transform)
     subs[sel[1]] = line
+    AUTO_SETTINGS:update("main", res)
+    AUTO_SETTINGS:write()
     aegisub.set_undo_point(script_name)
 end
 

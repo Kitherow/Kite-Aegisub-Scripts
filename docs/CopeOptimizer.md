@@ -1,4 +1,4 @@
-# Cope Optimizer 1.0.2
+# Cope Optimizer 1.0.3
 
 Cope Optimizer reduces selected PNG2ASS color drawing lines by merging similar colors or simplifying detected gradients.
 

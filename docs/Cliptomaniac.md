@@ -1,4 +1,4 @@
-# Cliptomaniac 0.2.25
+# Cliptomaniac 0.2.30
 
 Cliptomaniac is a clip toolbox for measuring, transforming, reshaping, fitting, projecting, and converting ASS clips.
 

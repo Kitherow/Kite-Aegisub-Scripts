@@ -14,14 +14,14 @@
                                            "description":  "Apply pasted ASS drawing textures clipped to selected text outlines",
                                            "channels":  {
                                                             "main":  {
-                                                                         "version":  "2.0.4",
-                                                                         "released":  "2026-07-04",
+                                                                         "version":  "2.0.6",
+                                                                         "released":  "2026-07-09",
                                                                          "default":  true,
                                                                          "files":  [
                                                                                        {
                                                                                            "name":  ".moon",
                                                                                            "url":  "@{fileBaseUrl}@{fileName}",
-                                                                                           "sha1":  "DE65165AC15259C6852E828D0FB71188EE5A49AD"
+                                                                                           "sha1":  "98CECB49EEF5E96FD7A40D24FB1A81E746971BB4"
                                                                                        }
                                                                                    ],
                                                                          "requiredModules":  [
@@ -38,10 +38,10 @@
                                                                                                      "feed":  "https://raw.githubusercontent.com/TypesettingTools/ASSFoundation/master/DependencyControl.json"
                                                                                                  },
                                                                                                  {
-                                                                                                     "moduleName":  "a-mo.ConfigHandler",
-                                                                                                     "version":  "1.1.4",
-                                                                                                     "url":  "https://github.com/TypesettingTools/Aegisub-Motion",
-                                                                                                     "feed":  "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"
+                                                                                                     "moduleName":  "kite.UI",
+                                                                                                     "version":  "1.0.0",
+                                                                                                     "url":  "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+                                                                                                     "feed":  "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"
                                                                                                  }
                                                                                              ]
                                                                      }
@@ -58,6 +58,9 @@
                                                                        ],
                                                              "2.0.4":  [
                                                                            "Adjusted dialog field sizing and message dimensions for a more consistent Aegisub UI."
+                                                                       ],
+                                                             "2.0.6":  [
+                                                                           "Migrated persistent preferences to the shared Kite UI settings store."
                                                                        ]
                                                          }
                                        },
@@ -68,14 +71,14 @@
                                             "description":  "Timing, cleanup, quality-control, and workflow suite for Aegisub.",
                                             "channels":  {
                                                              "main":  {
-                                                                          "version":  "1.0.7",
-                                                                          "released":  "2026-07-05",
+                                                                          "version":  "1.1.2",
+                                                                          "released":  "2026-07-12",
                                                                           "default":  true,
                                                                           "files":  [
                                                                                         {
                                                                                             "name":  ".lua",
                                                                                             "url":  "@{fileBaseUrl}@{fileName}",
-                                                                                            "sha1":  "32E8192622EEAF283183A94B86110F925F77E9B3"
+                                                                                            "sha1":  "9FC18C8F2C3FB2455B4BCC57FAE76E6BB697C456"
                                                                                         }
                                                                                     ],
                                                                           "requiredModules":  [
@@ -96,13 +99,19 @@
                                                                                                   },
                                                                                                   {
                                                                                                       "moduleName":  "kite.Timing",
-                                                                                                      "version":  "1.0.1",
+                                                                                                      "version":  "1.0.2",
                                                                                                       "url":  "https://github.com/Kitherow/Kite-Aegisub-Scripts",
                                                                                                       "feed":  "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json",
                                                                                                       "optional":  true
                                                                                                   },
                                                                                                   {
                                                                                                       "moduleName":  "karaskel"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "moduleName":  "kite.UI",
+                                                                                                      "version":  "1.0.0",
+                                                                                                      "url":  "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+                                                                                                      "feed":  "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"
                                                                                                   }
                                                                                               ]
                                                                       }
@@ -131,6 +140,12 @@
                                                                         ],
                                                               "1.0.7":  [
                                                                             "Repaired UTF-8 text in dialogs, labels, and multilingual help."
+                                                                        ],
+                                                              "1.1.1":  [
+                                                                            "Migrated suite preferences safely from the legacy Lua table and restored parent navigation after Auto Timing cancellation."
+                                                                        ],
+                                                              "1.1.2":  [
+                                                                            "Repaired Portuguese tolerance and distance labels in dialogs and help."
                                                                         ]
                                                           }
                                         },
@@ -141,14 +156,14 @@
                                              "description":  "Clip toolbox for measuring, transforming, reshaping, fitting, and projecting ASS clips.",
                                              "channels":  {
                                                               "main":  {
-                                                                           "version":  "0.2.25",
-                                                                           "released":  "2026-07-04",
+                                                                           "version":  "0.2.30",
+                                                                           "released":  "2026-07-09",
                                                                            "default":  true,
                                                                            "files":  [
                                                                                          {
                                                                                              "name":  ".moon",
                                                                                              "url":  "@{fileBaseUrl}@{fileName}",
-                                                                                             "sha1":  "B91D5E270A5B963DA527EE3B84393C53FDEA2D6F"
+                                                                                             "sha1":  "46FC6792E05D745422341A1B7D7363269770D9A3"
                                                                                          }
                                                                                      ],
                                                                            "requiredModules":  [
@@ -169,12 +184,6 @@
                                                                                                        "version":  "1.2.1",
                                                                                                        "url":  "https://github.com/TypesettingTools/arch1t3cht-Aegisub-Scripts",
                                                                                                        "feed":  "https://raw.githubusercontent.com/TypesettingTools/arch1t3cht-Aegisub-Scripts/main/DependencyControl.json"
-                                                                                                   },
-                                                                                                   {
-                                                                                                       "moduleName":  "a-mo.ConfigHandler",
-                                                                                                       "version":  "1.1.4",
-                                                                                                       "url":  "https://github.com/TypesettingTools/Aegisub-Motion",
-                                                                                                       "feed":  "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"
                                                                                                    },
                                                                                                    {
                                                                                                        "moduleName":  "a-mo.LineCollection",
@@ -199,6 +208,12 @@
                                                                                                        "version":  "1.5.3",
                                                                                                        "url":  "https://github.com/TypesettingTools/Aegisub-Motion",
                                                                                                        "feed":  "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"
+                                                                                                   },
+                                                                                                   {
+                                                                                                       "moduleName":  "kite.UI",
+                                                                                                       "version":  "1.0.0",
+                                                                                                       "url":  "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+                                                                                                       "feed":  "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"
                                                                                                    }
                                                                                                ]
                                                                        }
@@ -221,6 +236,21 @@
                                                                           ],
                                                                "0.2.25":  [
                                                                               "Adjusted dialog field sizing and message dimensions for a more consistent Aegisub UI."
+                                                                          ],
+                                                               "0.2.26":  [
+                                                                              "Unified action selection, language preferences, and child-dialog return behavior through Kite UI."
+                                                                          ],
+                                                               "0.2.27":  [
+                                                                              "Resolved inline ASS tags and style resets consistently for measurement and perspective geometry."
+                                                                          ],
+                                                               "0.2.28":  [
+                                                                              "Routed scale-only text bounds through exact ZF measurement while reserving Arch projection for effective rotation, shear, or drawings."
+                                                                          ],
+                                                               "0.2.29":  [
+                                                                              "Kept ZF text outlines, clips, masks, and shape conversions on the same effective alignment anchor."
+                                                                          ],
+                                                               "0.2.30":  [
+                                                                              "Normalized plain text geometry through compensated an7 anchors while preserving the source alignment."
                                                                           ]
                                                            }
                                          },
@@ -231,16 +261,24 @@
                                                   "description":  "Group selected lines by field values and apply shared replacements.",
                                                   "channels":  {
                                                                    "main":  {
-                                                                                "version":  "1.0.4",
-                                                                                "released":  "2026-07-04",
+                                                                                "version":  "1.0.5",
+                                                                                "released":  "2026-07-09",
                                                                                 "default":  true,
                                                                                 "files":  [
                                                                                               {
                                                                                                   "name":  ".moon",
                                                                                                   "url":  "@{fileBaseUrl}@{fileName}",
-                                                                                                  "sha1":  "53EC4D6E0EA6F037595D193FF3E81896D4201138"
+                                                                                                  "sha1":  "0A183FDCF71AE8F68ADDB8D3CC66909015F77646"
                                                                                               }
-                                                                                          ]
+                                                                                          ],
+                                                                                "requiredModules":  [
+                                                                                                        {
+                                                                                                            "moduleName":  "kite.UI",
+                                                                                                            "version":  "1.0.0",
+                                                                                                            "url":  "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+                                                                                                            "feed":  "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"
+                                                                                                        }
+                                                                                                    ]
                                                                             }
                                                                },
                                                   "changelog":  {
@@ -249,6 +287,9 @@
                                                                               ],
                                                                     "1.0.4":  [
                                                                                   "Aligned Execute/Cancel buttons and Kite Hotkeys registration."
+                                                                              ],
+                                                                    "1.0.5":  [
+                                                                                  "Added persistent field, scope, and grouping preferences through the shared Kite UI settings store."
                                                                               ]
                                                                 }
                                               },
@@ -259,14 +300,14 @@
                                             "description":  "Create adaptive color gradients across selected lines and visible text from palettes or inline color states.",
                                             "channels":  {
                                                              "main":  {
-                                                                          "version":  "1.6.3",
-                                                                          "released":  "2026-07-04",
+                                                                          "version":  "1.6.4",
+                                                                          "released":  "2026-07-09",
                                                                           "default":  true,
                                                                           "files":  [
                                                                                         {
                                                                                             "name":  ".moon",
                                                                                             "url":  "@{fileBaseUrl}@{fileName}",
-                                                                                            "sha1":  "20A6853871C9AC39B19D27791BDB15D9FFEE42BA"
+                                                                                            "sha1":  "740720821BDDD0D20365430BEE2AF13AA0DD1FB3"
                                                                                         }
                                                                                     ],
                                                                           "requiredModules":  [
@@ -300,6 +341,12 @@
                                                                                                       "url":  "https://github.com/TypesettingTools/SubInspector",
                                                                                                       "feed":  "https://raw.githubusercontent.com/TypesettingTools/SubInspector/master/DependencyControl.json",
                                                                                                       "optional":  true
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "moduleName":  "kite.UI",
+                                                                                                      "version":  "1.0.0",
+                                                                                                      "url":  "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+                                                                                                      "feed":  "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"
                                                                                                   }
                                                                                               ]
                                                                       }
@@ -316,6 +363,9 @@
                                                                         ],
                                                               "1.6.3":  [
                                                                             "Adjusted dialog field sizing and message dimensions for a more consistent Aegisub UI."
+                                                                        ],
+                                                              "1.6.4":  [
+                                                                            "Migrated key-value preferences and palette state to the shared Kite UI settings store."
                                                                         ]
                                                           }
                                         },
@@ -326,14 +376,14 @@
                                           "description":  "Convert pasted Adobe After Effects mask data into ASS drawing lines.",
                                           "channels":  {
                                                            "main":  {
-                                                                        "version":  "0.1.4",
-                                                                        "released":  "2026-07-04",
+                                                                        "version":  "0.1.5",
+                                                                        "released":  "2026-07-09",
                                                                         "default":  true,
                                                                         "files":  [
                                                                                       {
                                                                                           "name":  ".moon",
                                                                                           "url":  "@{fileBaseUrl}@{fileName}",
-                                                                                          "sha1":  "3CAF5A4BE021B651E71ABAA274398240281CC34C"
+                                                                                          "sha1":  "85FC3C6AA47A286C962D63FA51865498599EE09A"
                                                                                       }
                                                                                   ],
                                                                         "requiredModules":  [
@@ -350,10 +400,10 @@
                                                                                                     "feed":  "https://raw.githubusercontent.com/TypesettingTools/ASSFoundation/master/DependencyControl.json"
                                                                                                 },
                                                                                                 {
-                                                                                                    "moduleName":  "a-mo.ConfigHandler",
-                                                                                                    "version":  "1.1.4",
-                                                                                                    "url":  "https://github.com/TypesettingTools/Aegisub-Motion",
-                                                                                                    "feed":  "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"
+                                                                                                    "moduleName":  "kite.UI",
+                                                                                                    "version":  "1.0.0",
+                                                                                                    "url":  "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+                                                                                                    "feed":  "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"
                                                                                                 }
                                                                                             ]
                                                                     }
@@ -373,6 +423,9 @@
                                                                       ],
                                                             "0.1.4":  [
                                                                           "Adjusted dialog field sizing and message dimensions for a more consistent Aegisub UI."
+                                                                      ],
+                                                            "0.1.5":  [
+                                                                          "Migrated persistent preferences to the shared Kite UI settings store."
                                                                       ]
                                                         }
                                       },
@@ -383,14 +436,14 @@
                                       "description":  "Build and maintain ASS transform and tag effects.",
                                       "channels":  {
                                                        "main":  {
-                                                                    "version":  "0.2.2",
-                                                                    "released":  "2026-07-04",
+                                                                    "version":  "0.2.3",
+                                                                    "released":  "2026-07-09",
                                                                     "default":  true,
                                                                     "files":  [
                                                                                   {
                                                                                       "name":  ".moon",
                                                                                       "url":  "@{fileBaseUrl}@{fileName}",
-                                                                                      "sha1":  "BA2A96D0AA64814B12D8419EE4A3E908468712E0"
+                                                                                      "sha1":  "E1DBA5A96CCA368E089C19611BE5C333C677B053"
                                                                                   }
                                                                               ],
                                                                     "requiredModules":  [
@@ -407,10 +460,10 @@
                                                                                                 "feed":  "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"
                                                                                             },
                                                                                             {
-                                                                                                "moduleName":  "a-mo.ConfigHandler",
-                                                                                                "version":  "1.1.4",
-                                                                                                "url":  "https://github.com/TypesettingTools/Aegisub-Motion",
-                                                                                                "feed":  "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"
+                                                                                                "moduleName":  "kite.UI",
+                                                                                                "version":  "1.0.0",
+                                                                                                "url":  "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+                                                                                                "feed":  "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"
                                                                                             }
                                                                                         ]
                                                                 }
@@ -427,6 +480,9 @@
                                                                   ],
                                                         "0.2.2":  [
                                                                       "Adjusted dialog field sizing and message dimensions for a more consistent Aegisub UI."
+                                                                  ],
+                                                        "0.2.3":  [
+                                                                      "Unified action selection, language and tool preferences, and child-dialog return behavior through Kite UI."
                                                                   ]
                                                     }
                                   },
@@ -437,14 +493,14 @@
                                         "description":  "Convert PNG images into ASS drawing lines",
                                         "channels":  {
                                                          "main":  {
-                                                                      "version":  "1.1.3",
-                                                                      "released":  "2026-07-04",
+                                                                      "version":  "1.1.4",
+                                                                      "released":  "2026-07-09",
                                                                       "default":  true,
                                                                       "files":  [
                                                                                     {
                                                                                         "name":  ".lua",
                                                                                         "url":  "@{fileBaseUrl}@{fileName}",
-                                                                                        "sha1":  "1D6B8129E68D1AA723C9D7145418BC71A5487D1F"
+                                                                                        "sha1":  "284CE347A0744CE79234B291F560BB390E57DA0F"
                                                                                     }
                                                                                 ],
                                                                       "requiredModules":  [
@@ -453,6 +509,12 @@
                                                                                                   "version":  "1.0.2",
                                                                                                   "url":  "https://github.com/Akatmks/Akatsumekusa-Aegisub-Scripts",
                                                                                                   "feed":  "https://raw.githubusercontent.com/Akatmks/Akatsumekusa-Aegisub-Scripts/master/DependencyControl.json"
+                                                                                              },
+                                                                                              {
+                                                                                                  "moduleName":  "kite.UI",
+                                                                                                  "version":  "1.0.0",
+                                                                                                  "url":  "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+                                                                                                  "feed":  "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"
                                                                                               }
                                                                                           ]
                                                                   }
@@ -469,6 +531,9 @@
                                                                     ],
                                                           "1.1.3":  [
                                                                         "Adjusted dialog field sizing and message dimensions for a more consistent Aegisub UI."
+                                                                    ],
+                                                          "1.1.4":  [
+                                                                        "Migrated package and vectorization preferences to the shared Kite UI settings store."
                                                                     ]
                                                       }
                                     },
@@ -479,14 +544,14 @@
                                           "description":  "Typesetting and sign operations suite",
                                           "channels":  {
                                                            "main":  {
-                                                                        "version":  "1.0.8",
-                                                                        "released":  "2026-07-04",
+                                                                        "version":  "1.0.10",
+                                                                        "released":  "2026-07-12",
                                                                         "default":  true,
                                                                         "files":  [
                                                                                       {
                                                                                           "name":  ".lua",
                                                                                           "url":  "@{fileBaseUrl}@{fileName}",
-                                                                                          "sha1":  "49B1287CBE99E8C20D4D183DFF2C6E9C393162D8"
+                                                                                          "sha1":  "7CA3B3A2606B8D8C5BA7D8139EFACC7D75DB15D2"
                                                                                       }
                                                                                   ],
                                                                         "requiredModules":  [
@@ -527,13 +592,13 @@
                                                                                                     "feed":  "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"
                                                                                                 },
                                                                                                 {
-                                                                                                    "moduleName":  "a-mo.ConfigHandler",
-                                                                                                    "version":  "1.1.4",
-                                                                                                    "url":  "https://github.com/TypesettingTools/Aegisub-Motion",
-                                                                                                    "feed":  "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"
+                                                                                                    "moduleName":  "karaskel"
                                                                                                 },
                                                                                                 {
-                                                                                                    "moduleName":  "karaskel"
+                                                                                                    "moduleName":  "kite.UI",
+                                                                                                    "version":  "1.0.0",
+                                                                                                    "url":  "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+                                                                                                    "feed":  "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"
                                                                                                 }
                                                                                             ]
                                                                     }
@@ -556,7 +621,13 @@
                                                                       ],
                                                             "1.0.8":  [
                                                                           "Adjusted dialog field sizing and message dimensions for a more consistent Aegisub UI."
-                                                                      ]
+                                                                      ],
+                                                            "1.0.9":  [
+                                                                          "Migrated persistent preferences to the shared Kite UI settings store."
+                                                                      ],
+                                                            "1.0.10":  [
+                                                                           "Aligned Pos Align geometry with the first selected source line and kept settings scoped to Rhea Signs."
+                                                                       ]
                                                         }
                                       },
                    "kite.Snapshoter":  {
@@ -566,26 +637,20 @@
                                            "description":  "Capture subtitle frames, frame lists, and clip crops from the loaded video.",
                                            "channels":  {
                                                             "main":  {
-                                                                         "version":  "1.5.8",
-                                                                         "released":  "2026-07-04",
+                                                                         "version":  "1.5.9",
+                                                                         "released":  "2026-07-09",
                                                                          "default":  true,
                                                                          "files":  [
                                                                                        {
                                                                                            "name":  ".moon",
                                                                                            "url":  "@{fileBaseUrl}@{fileName}",
-                                                                                           "sha1":  "BA5ADE423D0EF23923104BB4059B171A150B7711"
+                                                                                           "sha1":  "B69913C853BCC2F10BF67844763F8C5C877C1242"
                                                                                        }
                                                                                    ],
                                                                          "requiredModules":  [
                                                                                                  {
                                                                                                      "moduleName":  "a-mo.LineCollection",
                                                                                                      "version":  "1.3.0",
-                                                                                                     "url":  "https://github.com/TypesettingTools/Aegisub-Motion",
-                                                                                                     "feed":  "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"
-                                                                                                 },
-                                                                                                 {
-                                                                                                     "moduleName":  "a-mo.ConfigHandler",
-                                                                                                     "version":  "1.1.4",
                                                                                                      "url":  "https://github.com/TypesettingTools/Aegisub-Motion",
                                                                                                      "feed":  "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"
                                                                                                  },
@@ -606,6 +671,12 @@
                                                                                                      "version":  "0.5.0",
                                                                                                      "url":  "https://github.com/TypesettingTools/ASSFoundation",
                                                                                                      "feed":  "https://raw.githubusercontent.com/TypesettingTools/ASSFoundation/master/DependencyControl.json"
+                                                                                                 },
+                                                                                                 {
+                                                                                                     "moduleName":  "kite.UI",
+                                                                                                     "version":  "1.0.0",
+                                                                                                     "url":  "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+                                                                                                     "feed":  "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"
                                                                                                  }
                                                                                              ]
                                                                      }
@@ -628,6 +699,9 @@
                                                                        ],
                                                              "1.5.8":  [
                                                                            "Adjusted dialog field sizing and message dimensions for a more consistent Aegisub UI."
+                                                                       ],
+                                                             "1.5.9":  [
+                                                                           "Migrated persistent preferences and made confirmed actions save stable settings consistently."
                                                                        ]
                                                          }
                                        },
@@ -678,14 +752,14 @@
                                          "description":  "Match a sign\u0027s \\\\blur to frame sharpness with fixed or tracked sample points and time-varying blur curves.",
                                          "channels":  {
                                                           "main":  {
-                                                                       "version":  "2.0.2",
-                                                                       "released":  "2026-07-04",
+                                                                       "version":  "2.0.3",
+                                                                       "released":  "2026-07-09",
                                                                        "default":  true,
                                                                        "files":  [
                                                                                      {
                                                                                          "name":  ".lua",
                                                                                          "url":  "@{fileBaseUrl}@{fileName}",
-                                                                                         "sha1":  "8E907974152CF5450918C6752AF149CD45260139"
+                                                                                         "sha1":  "AC2EBFC6BF8CD5A914E1A904AEBA0E99A07B018A"
                                                                                      }
                                                                                  ],
                                                                        "requiredModules":  [
@@ -698,6 +772,12 @@
                                                                                                    "url":  "https://github.com/TypesettingTools/Aegisub-Motion",
                                                                                                    "feed":  "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json",
                                                                                                    "optional":  true
+                                                                                               },
+                                                                                               {
+                                                                                                   "moduleName":  "kite.UI",
+                                                                                                   "version":  "1.0.0",
+                                                                                                   "url":  "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+                                                                                                   "feed":  "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"
                                                                                                }
                                                                                            ]
                                                                    }
@@ -711,6 +791,9 @@
                                                                      ],
                                                            "2.0.2":  [
                                                                          "Adjusted dialog field sizing and message dimensions for a more consistent Aegisub UI."
+                                                                     ],
+                                                           "2.0.3":  [
+                                                                         "Added persistent stable dialog preferences through the shared Kite UI settings store."
                                                                      ]
                                                        }
                                      },
@@ -721,18 +804,23 @@
                                               "description":  "Optimize selected PNG2ASS color drawing lines by merging similar colors or reducing detected gradients.",
                                               "channels":  {
                                                                "main":  {
-                                                                            "version":  "1.0.2",
-                                                                            "released":  "2026-07-04",
+                                                                            "version":  "1.0.3",
+                                                                            "released":  "2026-07-09",
                                                                             "default":  true,
                                                                             "files":  [
                                                                                           {
                                                                                               "name":  ".moon",
                                                                                               "url":  "@{fileBaseUrl}@{fileName}",
-                                                                                              "sha1":  "8C7617FDACDBCC635D9E6789344E17C0597BDF22"
+                                                                                              "sha1":  "B5C7B3525D63181F0F607E4106DF623E6C28D1AB"
                                                                                           }
                                                                                       ],
                                                                             "requiredModules":  [
-
+                                                                                                    {
+                                                                                                        "moduleName":  "kite.UI",
+                                                                                                        "version":  "1.0.0",
+                                                                                                        "url":  "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+                                                                                                        "feed":  "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"
+                                                                                                    }
                                                                                                 ]
                                                                         }
                                                            },
@@ -745,6 +833,9 @@
                                                                           ],
                                                                 "1.0.2":  [
                                                                               "Adjusted dialog field sizing and message dimensions for a more consistent Aegisub UI."
+                                                                          ],
+                                                                "1.0.3":  [
+                                                                              "Added persistent optimizer preferences through the shared Kite UI settings store."
                                                                           ]
                                                             }
                                           },
@@ -795,14 +886,14 @@
                                           "description":  "Karaoke por silaba con fases Intro, Active y Outro configurables por lineas comentadas",
                                           "channels":  {
                                                            "main":  {
-                                                                        "version":  "1.0.0",
-                                                                        "released":  "2026-07-04",
+                                                                        "version":  "1.0.1",
+                                                                        "released":  "2026-07-12",
                                                                         "default":  true,
                                                                         "files":  [
                                                                                       {
                                                                                           "name":  ".lua",
                                                                                           "url":  "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/@{channel}/Macros-Lite/@{namespace}@{fileName}",
-                                                                                          "sha1":  "E8FE7863B627073AED18C2724CD6576018926A2A"
+                                                                                          "sha1":  "FCA59847A561EC146A98A49C0286AC54118C153B"
                                                                                       }
                                                                                   ],
                                                                         "requiredModules":  [
@@ -815,6 +906,9 @@
                                           "changelog":  {
                                                             "1.0.0":  [
                                                                           "Initial Alecto KFX release."
+                                                                      ],
+                                                            "1.0.1":  [
+                                                                          "Made cancellation atomic and kept runtime errors free of local diagnostic details."
                                                                       ]
                                                         }
                                       },
@@ -939,14 +1033,14 @@
                                         "description":  "Voice-timing engines for waveform, multi-signal, and silence-based timing workflows.",
                                         "channels":  {
                                                          "main":  {
-                                                                      "version":  "1.0.1",
-                                                                      "released":  "2026-07-05",
+                                                                      "version":  "1.0.2",
+                                                                      "released":  "2026-07-12",
                                                                       "default":  true,
                                                                       "files":  [
                                                                                     {
                                                                                         "name":  ".lua",
                                                                                         "url":  "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/@{channel}/Modules/kite/Timing.lua",
-                                                                                        "sha1":  "710F87E01062D9E9D7CDB95CA54B4290B46BB0F5"
+                                                                                        "sha1":  "C1945D4DFF0FBC53081E0835708B1F97AE3FAB37"
                                                                                     }
                                                                                 ]
                                                                   }
@@ -957,8 +1051,36 @@
                                                                     ],
                                                           "1.0.1":  [
                                                                         "Repaired UTF-8 method labels and progress text."
+                                                                    ],
+                                                          "1.0.2":  [
+                                                                        "Aligned the exported module version with its DependencyControl release."
                                                                     ]
                                                       }
-                                    }
+                                    },
+                    "kite.UI":  {
+                                    "url":  "@{baseUrl}/blob/main/Modules/kite/UI.lua",
+                                    "author":  "Kiterow",
+                                    "name":  "Kite UI",
+                                    "description":  "Shared settings, migration, and dialog-flow helpers for Kite Aegisub scripts.",
+                                    "channels":  {
+                                                     "main":  {
+                                                                  "version":  "1.0.0",
+                                                                  "released":  "2026-07-09",
+                                                                  "default":  true,
+                                                                  "files":  [
+                                                                                {
+                                                                                    "name":  ".lua",
+                                                                                    "url":  "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/@{channel}/Modules/kite/UI.lua",
+                                                                                    "sha1":  "543C41949DC5F281F91CAA0C9A48B80983D71C41"
+                                                                                }
+                                                                            ]
+                                                              }
+                                                 },
+                                    "changelog":  {
+                                                      "1.0.0":  [
+                                                                    "Initial shared settings and dialog-flow module release."
+                                                                ]
+                                                  }
+                                }
                 }
 }

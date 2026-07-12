@@ -1,4 +1,4 @@
-# Alecto KFX 1.0.0
+# Alecto KFX 1.0.1
 
 Alecto KFX generates karaoke by syllable with Intro, Active, and Outro phases from commented setup lines.
 

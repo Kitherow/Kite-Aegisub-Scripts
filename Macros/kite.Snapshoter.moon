@@ -1,7 +1,7 @@
 export script_name        = "Snapshoter"
 export script_description = "Capture subtitle frames, frame lists, frame sequences, and clip crops from the loaded video"
 export script_author      = "Kiterow"
-export script_version     = "1.5.8"
+export script_version     = "1.5.9"
 export script_namespace   = "kite.Snapshoter"
 HOTKEY_MENU_ROOT = ": Kite Hotkeys :"
 HOTKEY_MENU_SCRIPT = "Snapshoter"
@@ -12,8 +12,8 @@ depctrl = DependencyControl{
   {
     {"a-mo.LineCollection", version: "1.3.0", url: "https://github.com/TypesettingTools/Aegisub-Motion",
       feed: "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"}
-    {"a-mo.ConfigHandler", version: "1.1.4", url: "https://github.com/TypesettingTools/Aegisub-Motion",
-      feed: "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"}
+    {"kite.UI", version: "1.0.0", url: "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+      feed: "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"}
     {"a-mo.Tags", version: "1.3.4", url: "https://github.com/TypesettingTools/Aegisub-Motion",
       feed: "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"}
     {"a-mo.Log", version: "1.0.0", url: "https://github.com/TypesettingTools/Aegisub-Motion",
@@ -22,7 +22,12 @@ depctrl = DependencyControl{
       feed: "https://raw.githubusercontent.com/TypesettingTools/ASSFoundation/master/DependencyControl.json"}
   }
 }
-LineCollection, ConfigHandler, Tags, log, ASS = depctrl\requireModules!
+LineCollection, KiteUI, Tags, log, ASS = depctrl\requireModules!
+
+ConfigHandler = (interface, file_name, _has_sections, version) ->
+  KiteUI.dialogHandler interface, script_namespace, version, {
+    {path: "?user/" .. file_name, format: "json_sections"}
+  }
 
 CONFIG_FILE = "kite-snapshoter.json"
 
@@ -1143,7 +1148,6 @@ build_interface = (video, lineCount, frameDefaults) ->
       clipOutput: { class: "dropdown", value: "Rectangle crop", items: CLIP_OUTPUTS, config: true, x: 2, y: 2, width: 6, height: 1 }
       outputInfo: { class: "label", label: "Output: project folder / Snapshots", x: 0, y: 3, width: 14, height: 1 }
       includeText: { class: "checkbox", label: "Add subtitle text to filenames", value: true, config: true, x: 2, y: 4, width: 6, height: 1 }
-      saveSettings: { class: "checkbox", label: "Save settings", value: true, config: true, x: 8, y: 4, width: 4, height: 1 }
       flatSnapshots: { class: "checkbox", label: "All images in Snapshots", value: false, config: true, x: 12, y: 4, width: 5, height: 1 }
       sequenceInfo: { class: "label", label: "Frame sequence outputs", x: 0, y: 5, width: 4, height: 1 }
       captureClean: { class: "checkbox", label: "No subtitles", value: true, config: true, x: 4, y: 5, width: 4, height: 1 }
@@ -1188,9 +1192,8 @@ read_config = (video, lineCount, frameDefaults) ->
         options\updateInterface "config"
       continue
     if button == "Execute"
-      if result.saveSettings
-        options\updateConfiguration result, "main"
-        options\write!
+      options\updateConfiguration result, "main"
+      options\write!
       return {
         mode: choice_or_default(normalize_mode(result.mode), CAPTURE_MODES, "Selected lines")
         timing: choice_or_default(result.timing, TIMING_MODES, "Midpoint")

@@ -1,14 +1,14 @@
 export script_name        = "AddTexture"
 export script_description = "Apply pasted ASS drawing textures clipped to selected text outlines"
 export script_author      = "Kiterow"
-export script_version     = "2.0.4"
+export script_version     = "2.0.6"
 export script_namespace   = "kite.AddTexture"
 HOTKEY_MENU_ROOT = ": Kite Hotkeys :"
 HOTKEY_MENU_SCRIPT = "AddTexture"
 
 CONFIG_FILE = "kite-addtexture.json"
 
-local ZF, ASS, ConfigHandler, depctrl
+local ZF, ASS, KiteUI, depctrl
 DependencyControl = require "l0.DependencyControl"
 depctrl = DependencyControl{
   feed: "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json",
@@ -17,11 +17,16 @@ depctrl = DependencyControl{
       feed: "https://raw.githubusercontent.com/TypesettingTools/zeref-Aegisub-Scripts/main/DependencyControl.json"}
     {"l0.ASSFoundation", version: "0.5.0", url: "https://github.com/TypesettingTools/ASSFoundation",
       feed: "https://raw.githubusercontent.com/TypesettingTools/ASSFoundation/master/DependencyControl.json"}
-    {"a-mo.ConfigHandler", version: "1.1.4", url: "https://github.com/TypesettingTools/Aegisub-Motion",
-      feed: "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json"}
+    {"kite.UI", version: "1.0.0", url: "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+      feed: "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"}
   }
 }
-ZF, ASS, ConfigHandler = depctrl\requireModules!
+ZF, ASS, KiteUI = depctrl\requireModules!
+
+ConfigHandler = (interface, file_name, _has_sections, version) ->
+  KiteUI.dialogHandler interface, script_namespace, version, {
+    {path: "?user/" .. file_name, format: "json_sections"}
+  }
 
 safe_require = (name) ->
   ok, mod = pcall require, name
@@ -35,6 +40,7 @@ DEFAULTS = {
   layer_offset: 1
   preserve_colors: false
   cut_to_text_shape: false
+  copy_visibility_tags: false
   user_tags: "\\bord0\\shad0"
 }
 
@@ -521,6 +527,66 @@ text_primary_color = (l, line) ->
     return normalize_color(line.styleref.color1) or line.styleref.color1
   "&HFFFFFF&"
 
+balanced_paren_end = (text, open_pos) ->
+  depth = 0
+  for i = open_pos, #text
+    c = text\sub(i, i)
+    if c == "("
+      depth += 1
+    elseif c == ")"
+      depth -= 1
+      return i if depth == 0
+  nil
+
+match_visibility_tag = (text, pos) ->
+  chunk = text\sub pos
+  tag = chunk\match "^\\alpha%s*&[Hh]%x+&?"
+  return tag if tag
+  tag = chunk\match "^\\[1234]a%s*&[Hh]%x+&?"
+  return tag if tag
+  tag = chunk\match "^\\fade%s*%([^%)]*%)"
+  return tag if tag
+  tag = chunk\match "^\\fad%s*%([^%)]*%)"
+  return tag if tag
+  nil
+
+scan_visibility_tags = (tags) ->
+  out = {}
+  pos = 1
+  while pos <= #tags
+    if tags\sub(pos, pos) == "\\"
+      chunk = tags\sub(pos)
+      transform_start = chunk\match "^\\t%s*%("
+      if transform_start
+        open_pos = pos + #transform_start - 1
+        close_pos = balanced_paren_end tags, open_pos
+        unless close_pos
+          break
+        body = tags\sub(open_pos + 1, close_pos - 1)
+        tag_start = body\find "\\", 1, true
+        if tag_start
+          prefix = body\sub(1, tag_start - 1)
+          transform_tags = scan_visibility_tags(body\sub(tag_start))
+          out[#out + 1] = "\\t(" .. prefix .. transform_tags .. ")" if transform_tags != ""
+        pos = close_pos + 1
+      else
+        tag = match_visibility_tag tags, pos
+        if tag
+          out[#out + 1] = tag
+          pos += #tag
+        else
+          pos += 1
+    else
+      pos += 1
+  table.concat out, ""
+
+collect_visibility_tags = (text) ->
+  out = {}
+  for tags in tostring(text or "")\gmatch "{([^}]*)}"
+    copied = scan_visibility_tags tags
+    out[#out + 1] = copied if copied != ""
+  table.concat out, ""
+
 show_message = (title, msg) ->
   aegisub.dialog.display {
     { class: "label", label: title, x: 0, y: 0, width: 42 }
@@ -558,16 +624,25 @@ build_interface = ->
         y: 12
         width: 4
       }
-      user_tags_label: { class: "label", label: "Extra tags:", x: 0, y: 13, width: 2 }
+      copy_visibility_tags: {
+        class: "checkbox"
+        label: "Copy alpha/fad"
+        value: DEFAULTS.copy_visibility_tags
+        config: true
+        x: 0
+        y: 13
+        width: 7
+      }
+      user_tags_label: { class: "label", label: "Extra tags:", x: 0, y: 14, width: 2 }
       user_tags: {
         class: "edit"
         value: DEFAULTS.user_tags
         config: true
         x: 2
-        y: 13
+        y: 14
         width: 5
       }
-      clip_tolerance_label: { class: "label", label: "Text simplify:", x: 0, y: 14, width: 4 }
+      clip_tolerance_label: { class: "label", label: "Text simplify:", x: 0, y: 15, width: 4 }
       clip_tolerance: {
         class: "floatedit"
         value: DEFAULTS.clip_tolerance
@@ -575,10 +650,10 @@ build_interface = ->
         min: 1
         max: 50
         x: 4
-        y: 14
+        y: 15
         width: 3
       }
-      shape_tolerance_label: { class: "label", label: "Shape simplify:", x: 0, y: 15, width: 4 }
+      shape_tolerance_label: { class: "label", label: "Shape simplify:", x: 0, y: 16, width: 4 }
       shape_tolerance: {
         class: "floatedit"
         value: DEFAULTS.shape_tolerance
@@ -586,10 +661,10 @@ build_interface = ->
         min: 1
         max: 50
         x: 4
-        y: 15
+        y: 16
         width: 3
       }
-      layer_offset_label: { class: "label", label: "Layer offset:", x: 0, y: 16, width: 4 }
+      layer_offset_label: { class: "label", label: "Layer offset:", x: 0, y: 17, width: 4 }
       layer_offset: {
         class: "intedit"
         value: DEFAULTS.layer_offset
@@ -597,7 +672,7 @@ build_interface = ->
         min: 0
         max: 100
         x: 4
-        y: 16
+        y: 17
         width: 3
       }
     }
@@ -643,6 +718,7 @@ main = (subs, sel, active) ->
       text_box = build_text_clip dlg, line, opts.clip_tolerance
       clip_inner = trim text_box.clip
       fallback_color = text_primary_color l, line
+      visibility_tags = if opts.copy_visibility_tags then collect_visibility_tags l.text else ""
 
       for group in *texture_groups
         fitted, fit_err = fit_texture_to_box group, text_box.l, text_box.t, text_box.w, text_box.h
@@ -663,10 +739,11 @@ main = (subs, sel, active) ->
         new_line = ZF.table(l)\copy!
         new_line.comment = false
         new_line.layer = (l.layer or 0) + (tonumber(opts.layer_offset) or 1)
-        new_line.text = string.format "{\\an7\\pos(%s,%s)%s\\1c%s%s\\p1}%s",
+        new_line.text = string.format "{\\an7\\pos(%s,%s)%s%s\\1c%s%s\\p1}%s",
           format_number(fitted.x),
           format_number(fitted.y),
           opts.user_tags or "",
+          visibility_tags,
           group.color or fallback_color,
           clip_tag,
           drawing

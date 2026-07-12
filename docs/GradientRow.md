@@ -1,4 +1,4 @@
-# Gradient Row 1.6.3
+# Gradient Row 1.6.4
 
 Gradient Row creates adaptive color gradients across selected lines and visible text.
 

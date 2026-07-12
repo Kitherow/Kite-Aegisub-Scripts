@@ -2,7 +2,7 @@ export script_name = "Gradient Row"
 export script_description = "Create adaptive color gradients across selected lines and visible text from palettes or inline color states."
 export script_author = "Kiterow"
 export script_namespace = "kite.GradientRow"
-export script_version = "1.6.3"
+export script_version = "1.6.4"
 HOTKEY_MENU_ROOT = ": Kite Hotkeys :"
 HOTKEY_MENU_SCRIPT = "Gradient Row"
 
@@ -18,13 +18,15 @@ depctrl = DependencyControl{
       feed: "https://raw.githubusercontent.com/TypesettingTools/ASSFoundation/master/DependencyControl.json"},
     {"arch.Perspective", version: "1.2.1", url: "https://github.com/TypesettingTools/arch1t3cht-Aegisub-Scripts",
       feed: "https://raw.githubusercontent.com/TypesettingTools/arch1t3cht-Aegisub-Scripts/main/DependencyControl.json"},
+    {"kite.UI", version: "1.0.0", url: "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+      feed: "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json"},
     {"SubInspector.Inspector", version: "0.6.0", url: "https://github.com/TypesettingTools/SubInspector",
       feed: "https://raw.githubusercontent.com/TypesettingTools/SubInspector/master/DependencyControl.json",
       optional: true},
   }
 }
 
-LineCollection, Line, ASS, ArchPerspective, SubInspector = depctrl\requireModules!
+LineCollection, Line, ASS, ArchPerspective, KiteUI, SubInspector = depctrl\requireModules!
 logger = depctrl\getLogger!
 have_SubInspector = depctrl\checkOptionalModules "SubInspector.Inspector"
 
@@ -106,58 +108,33 @@ default_state = ->
     colors: {"#FFFFFF", "#FF0000"}
   }
 
-config_path = ->
-  return nil unless aegisub.decode_path
-  ok, path = pcall aegisub.decode_path, "?user/kite.GradientRow.conf"
-  return path if ok and type(path) == "string" and #path > 0
-  nil
-
-serialize_state = (state) ->
-  state = normalize_state state
-  lines = {
-    "mode=#{state.mode}"
-    "use_between=#{tostring(state.use_between)}"
-    "strip=#{state.strip}"
-    "accel=#{state.accel}"
-    "angle=#{state.angle}"
+legacy_gradient = (loaded) ->
+  state = {
+    mode: loaded.mode
+    use_between: loaded.use_between
+    strip: loaded.strip
+    accel: loaded.accel
+    angle: loaded.angle
+    slots: {}
+    colors: {}
   }
   for slot in *color_slots
-    lines[#lines + 1] = "slot_#{slot}=#{tostring(state.slots[slot])}"
-  lines[#lines + 1] = "colors=#{table.concat state.colors, ","}"
-  table.concat(lines, "\n") .. "\n"
+    state.slots[slot] = loaded["slot_#{slot}"]
+  for color in tostring(loaded.colors or "")\gmatch "[^,]+"
+    normalized = normalize_gui_color color
+    state.colors[#state.colors + 1] = normalized if normalized
+  normalize_state state
+
+GRADIENT_SETTINGS = KiteUI.settings script_namespace, script_version, {main: default_state!}, {
+  {path: "?user/kite.GradientRow.conf", format: "key_value", target: "main", transform: legacy_gradient}
+}
 
 save_state = (state) ->
-  path = config_path!
-  return unless path
-  file = io.open path, "w"
-  return unless file
-  file\write serialize_state state
-  file\close!
+  GRADIENT_SETTINGS\update "main", normalize_state(state)
+  GRADIENT_SETTINGS\write!
 
 load_state = ->
-  path = config_path!
-  return default_state! unless path
-  file = io.open path, "r"
-  return default_state! unless file
-  loaded = {slots: {}, colors: {}}
-  for raw in file\lines!
-    key, value = raw\match "^%s*([%w_]+)%s*=%s*(.-)%s*$"
-    continue unless key
-    switch key
-      when "mode" then loaded.mode = value
-      when "use_between" then loaded.use_between = value == "true"
-      when "strip" then loaded.strip = tonumber value
-      when "accel" then loaded.accel = tonumber value
-      when "angle" then loaded.angle = tonumber value
-      when "colors"
-        for color in value\gmatch "[^,]+"
-          normalized = normalize_gui_color color
-          loaded.colors[#loaded.colors + 1] = normalized if normalized
-      else
-        if slot = key\match "^slot_(.+)$"
-          loaded.slots[slot] = value == "true"
-  file\close!
-  normalize_state loaded
+  normalize_state GRADIENT_SETTINGS\values "main"
 
 window_error = (message) ->
   aegisub.dialog.display {{class: "label", label: message, x: 0, y: 0, width: 48, height: 2}}, {"Cancel"}, cancel: "Cancel"
@@ -302,7 +279,9 @@ apply_color_tags_text = (text, slots, color) ->
 rough_text_bounds = (line) ->
   style = line.styleRef or line.styleref or {}
   visible = strip_tags line.text
-  char_count = math.max(1, #visible)
+  char_count = 0
+  char_count += 1 for _ in visible\gmatch "[%z\1-\127\194-\244][\128-\191]*"
+  char_count = math.max 1, char_count
   fs = number_tag(line.text, "fs", style.fontsize or 40)
   fscx = number_tag(line.text, "fscx", style.scale_x or 100) / 100
   fscy = number_tag(line.text, "fscy", style.scale_y or 100) / 100

@@ -6,29 +6,29 @@ A collection of Aegisub automation scripts for timing, quality control, typesett
 
 | Script | Version | Menu root | Interface languages |
 | --- | --- | --- | --- |
-| AddTexture | 2.0.4 | `AddTexture` | English |
-| Alecto KFX | 1.0.0 | `Alecto KFX` | No GUI |
-| Auto Blur | 2.0.2 | `Auto Blur` | English |
-| Chrono Suite | 1.0.7 | `Chrono Suite` | English, Spanish, Portuguese |
-| Cliptomaniac | 0.2.25 | `Cliptomaniac` | English, Spanish |
-| Cope Optimizer | 1.0.2 | `Cope Optimizer` | Spanish |
+| AddTexture | 2.0.6 | `AddTexture` | English |
+| Alecto KFX | 1.0.1 | `Alecto KFX` | No GUI |
+| Auto Blur | 2.0.3 | `Auto Blur` | English |
+| Chrono Suite | 1.1.2 | `Chrono Suite` | English, Spanish, Portuguese |
+| Cliptomaniac | 0.2.30 | `Cliptomaniac` | English, Spanish |
+| Cope Optimizer | 1.0.3 | `Cope Optimizer` | Spanish |
 | Fad-Continuity | 1.0.0 | `Fad-Continuity` | No GUI |
-| Field Group Manager | 1.0.4 | `Field Group Manager` | English |
-| Gradient Row | 1.6.3 | `Gradient Row` | English |
+| Field Group Manager | 1.0.5 | `Field Group Manager` | English |
+| Gradient Row | 1.6.4 | `Gradient Row` | English |
 | Insert Coñete | 1.0.0 | `Insert Coñete` | No GUI |
 | Komari | 1.0.0 | `Komari` | No GUI |
 | Line Mixer | 1.0.0 | `Line Mixer` | No GUI |
-| Moka Shape | 0.1.4 | `Moka Shape` | English |
-| Obake | 0.2.2 | `Obake` | English, Spanish |
-| PNG2ASS | 1.1.3 | `PNG2ASS` | English |
-| Rhea Signs | 1.0.8 | `Rhea Signs` | English, Spanish, Portuguese |
-| Snapshoter | 1.5.8 | `Snapshoter` | English |
+| Moka Shape | 0.1.5 | `Moka Shape` | English |
+| Obake | 0.2.3 | `Obake` | English, Spanish |
+| PNG2ASS | 1.1.4 | `PNG2ASS` | English |
+| Rhea Signs | 1.0.10 | `Rhea Signs` | English, Spanish, Portuguese |
+| Snapshoter | 1.5.9 | `Snapshoter` | English |
 | Wave2json | 1.2.0 | `Wave2json` | No GUI |
 | Zheus Colormanager | 4.4.4 | `Zheus Colormanager` | Spanish |
 
 ## DependencyControl
 
-DependencyControl update information is provided in `DependencyControl.json`. The feed includes the public macros listed above and the `kite.Timing` module used by Chrono Suite.
+DependencyControl update information is provided in `DependencyControl.json`. The feed includes the public macros listed above, the `kite.Timing` timing module, and the `kite.UI` shared settings module. Stable preferences are stored by namespace in `?user/config/kite.settings.json`.
 
 Feed URL:
 

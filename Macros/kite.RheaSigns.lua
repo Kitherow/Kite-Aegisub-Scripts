@@ -1,7 +1,7 @@
 script_name        = "Rhea Signs"
 script_description = "Typesetting and sign operations suite"
 script_author      = "Kiterow"
-script_version     = "1.0.8"
+script_version     = "1.0.10"
 script_namespace   = "kite.RheaSigns"
 
 local HOTKEY_MENU_ROOT = ": Kite Hotkeys :"
@@ -32,12 +32,18 @@ local depRec = DependencyControl{
         { "a-mo.Line", version = "1.5.3",
           url  = "https://github.com/TypesettingTools/Aegisub-Motion",
           feed = "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json" },
-        { "a-mo.ConfigHandler", version = "1.1.4",
-          url  = "https://github.com/TypesettingTools/Aegisub-Motion",
-          feed = "https://raw.githubusercontent.com/TypesettingTools/Aegisub-Motion/DepCtrl/DependencyControl.json" },
+        { "kite.UI", version = "1.0.0",
+          url  = "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+          feed = "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json" },
     },
 }
-local ASS, Functional, ArchPersp, ArchUtil, LineCollection, AMLine, ConfigHandler = depRec:requireModules()
+local ASS, Functional, ArchPersp, ArchUtil, LineCollection, AMLine, KiteUI = depRec:requireModules()
+
+local function ConfigHandler(interface, file_name, _, version)
+    return KiteUI.dialogHandler(interface, script_namespace, version, {
+        { path = "?user/" .. file_name, format = "json_sections" },
+    })
+end
 
 local FunctionalString  = Functional.string
 local FunctionalMath    = Functional.math
@@ -547,9 +553,6 @@ local current_lang = "en"
 local function L(key)
     local localValue = (LANG[current_lang] and LANG[current_lang][key]) or LANG.en[key]
     if localValue then return localValue end
-    if type(_G.OlympusL) == "function" then
-        local v = _G.OlympusL(key); if type(v) == "string" and v ~= "" and v ~= key then return v end
-    end
     return key
 end
 
@@ -626,12 +629,6 @@ end
 
 local function resolveConfig()
     loadGlobalConfig()
-    if _G.Olympus and type(_G.Olympus.config) == "table" then
-        for k, v in pairs(_G.Olympus.config) do
-            if current_config[k] == nil and RheaConfig.isKnownKey(k) then current_config[k] = v end
-        end
-        current_lang = _G.Olympus.config.language or current_lang
-    end
 end
 
 
@@ -3150,11 +3147,11 @@ local function applyCircle(subs, sel, cfg)
     local lines = LineCollection(subs, sel)
     local replacements, additions = {}, {}
     local cnt = 0
-    
+
     lines:runCallback(function(_, line)
         local markerID = generateMarkerID(usedMarkers)
         if not prepareSignLine(subs, meta, styles, line) then return end
-        
+
         local px, py = line.text:match("\\pos%(([%d%.%-eE%+]+),([%d%.%-eE%+]+)%)")
         local ox, oy = line.text:match("\\org%(([%d%.%-eE%+]+),([%d%.%-eE%+]+)%)")
         if not (px and py and ox and oy) then
@@ -3249,7 +3246,7 @@ local function applyCurve(subs, sel, cfg)
     local meta, styles = karaskel.collect_head(subs, false)
     local lines = LineCollection(subs, sel)
     local replacements = {}
-    
+
     local globalClipCmds = nil
     for _, i in ipairs(sel) do
         globalClipCmds = parseVectorClip(subs[i].text)
@@ -3260,7 +3257,7 @@ local function applyCurve(subs, sel, cfg)
         return 0
     end
     local cnt = 0
-    
+
     lines:runCallback(function(_, line)
         local markerID = generateMarkerID(usedMarkers)
         local clipCmds = parseVectorClip(line.text) or globalClipCmds
@@ -4239,12 +4236,12 @@ local function tagopsPosAlignDelta(sourceLine, referenceLine, moveGeometry)
     local referenceX, referenceY = tagopsFirstPos(referenceLine.text)
     if not referenceX then return nil, nil, L("tagops_err_reference_pos") end
 
-    local dx, dy = referenceX - sourceX, referenceY - sourceY
+    local dx, dy = sourceX - referenceX, sourceY - referenceY
     if dx == 0 and dy == 0 and moveGeometry then
         local sourceOrgX, sourceOrgY = tagopsFirstOrg(sourceLine.text)
         local referenceOrgX, referenceOrgY = tagopsFirstOrg(referenceLine.text)
         if sourceOrgX and referenceOrgX then
-            dx, dy = referenceOrgX - sourceOrgX, referenceOrgY - sourceOrgY
+            dx, dy = sourceOrgX - referenceOrgX, sourceOrgY - referenceOrgY
         end
     end
     if dx == 0 and dy == 0 then return nil, nil, L("tagops_align_no_delta") end
@@ -4301,7 +4298,7 @@ function TagOps.opPosAlign(subs, sel, opts)
 
     local changed = 0
     for _, i in ipairs(indices) do
-        if i ~= referenceIndex then
+        if i ~= sourceIndex then
             local line = subs[i]
             local nextText = tagopsShiftAlignText(line.text or "", dx, dy, moveGeometry)
             if nextText ~= line.text then

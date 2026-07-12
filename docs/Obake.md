@@ -1,4 +1,4 @@
-# Obake 0.2.2
+# Obake 0.2.3
 
 Obake builds and maintains ASS transform and tag effects.
 

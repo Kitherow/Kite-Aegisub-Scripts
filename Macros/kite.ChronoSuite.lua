@@ -1,7 +1,7 @@
 script_name        = "Chrono Suite"
 script_description = "Suite for subtitle timing, QC, cleanup, and workflow toolkit"
 script_author      = "Kiterow"
-script_version     = "1.0.7"
+script_version     = "1.1.2"
 script_namespace   = "kite.ChronoSuite"
 
 include("karaskel.lua")
@@ -85,7 +85,7 @@ for u, l in pairs(LATIN_UPPER_TO_LOWER) do LATIN_LOWER_TO_UPPER[l] = u end
 local function safeRequire(mod) local ok,m = pcall(require, mod); if ok then return m end end
 
 local DependencyControl = safeRequire("l0.DependencyControl")
-local depRec, ASS, Functional, re, Timing
+local depRec, ASS, Functional, re, KiteUI, Timing
 
 if DependencyControl then
     local ok, rec = pcall(DependencyControl, {
@@ -98,6 +98,9 @@ if DependencyControl then
               url  = "https://github.com/TypesettingTools/Functional",
               feed = "https://raw.githubusercontent.com/TypesettingTools/Functional/master/DependencyControl.json" },
             { "aegisub.re" },
+            { "kite.UI", version = "1.0.0",
+              url  = "https://github.com/Kitherow/Kite-Aegisub-Scripts",
+              feed = "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json" },
             { "kite.Timing", version = "1.0.0", optional = true,
               url  = "https://github.com/Kitherow/Kite-Aegisub-Scripts",
               feed = "https://raw.githubusercontent.com/Kitherow/Kite-Aegisub-Scripts/main/DependencyControl.json" },
@@ -105,13 +108,14 @@ if DependencyControl then
     })
     if ok and rec then
         depRec = rec
-        local okMods, mASS, mFunctional, mRe, mTiming = pcall(function() return depRec:requireModules() end)
-        if okMods then ASS, Functional, re, Timing = mASS, mFunctional, mRe, mTiming end
+        local okMods, mASS, mFunctional, mRe, mKiteUI, mTiming = pcall(function() return depRec:requireModules() end)
+        if okMods then ASS, Functional, re, KiteUI, Timing = mASS, mFunctional, mRe, mKiteUI, mTiming end
     end
 end
 ASS        = ASS        or safeRequire("l0.ASSFoundation")
 Functional = Functional or safeRequire("l0.Functional")
 re         = re         or safeRequire("aegisub.re")
+KiteUI     = KiteUI     or safeRequire("kite.UI")
 Timing     = Timing     or safeRequire("kite.Timing")
 
 local FunctionalString  = type(Functional) == "table" and Functional.string  or nil
@@ -199,46 +203,24 @@ local DEFAULT_CONFIG = {
     scream_scope         = "All dialogue",
 }
 
-local configPath = aegisub.decode_path("?user/chrono_suite_config.lua")
 local currentConfig = {}
 local currentLang = "en"
+local CHRONO_SETTINGS = KiteUI and KiteUI.settings(script_namespace, script_version, { main = DEFAULT_CONFIG }, {
+    { path = "?user/chrono_suite_config.lua", format = "lua_table", target = "main" },
+}) or nil
 
 local function loadConfig()
-    local f = io.open(configPath, "r")
-    if f then
-        local content = f:read("*a"); f:close()
-        local chunk = loadstring("return " .. content)
-        if chunk then
-            local ok, loaded = pcall(chunk)
-            if ok and type(loaded) == "table" then
-                currentConfig = {}
-                for k, v in pairs(DEFAULT_CONFIG) do
-                    currentConfig[k] = loaded[k] == nil and v or loaded[k]
-                end
-                currentLang = currentConfig.language or "en"
-                return true
-            end
-        end
-    end
     currentConfig = {}
-    for k, v in pairs(DEFAULT_CONFIG) do currentConfig[k] = v end
+    local loaded = CHRONO_SETTINGS and CHRONO_SETTINGS:values("main") or DEFAULT_CONFIG
+    for k, v in pairs(DEFAULT_CONFIG) do currentConfig[k] = loaded[k] == nil and v or loaded[k] end
     currentLang = currentConfig.language or "en"
-    return false
+    return CHRONO_SETTINGS ~= nil
 end
 
 local function saveConfig()
-    local f = io.open(configPath, "w"); if not f then return false end
-    f:write("{\n")
-    for k in pairs(DEFAULT_CONFIG) do
-        local v = currentConfig[k]
-        if type(v) == "string" then
-            f:write(string.format("    %s = %q,\n", k, v))
-        else
-            f:write(string.format("    %s = %s,\n", k, tostring(v)))
-        end
-    end
-    f:write("}\n"); f:close()
-    return true
+    if not CHRONO_SETTINGS then return false end
+    CHRONO_SETTINGS:update("main", currentConfig)
+    return CHRONO_SETTINGS:write()
 end
 
 loadConfig()
@@ -1063,7 +1045,7 @@ local UI = {
             ["TOO-WIDE"]="Too wide", ["TOO-SHORT"]="Too short", ["TOO-LONG"]="Too long", ["TOO-LONG-TIME"]="Too long duration",
             ["FAST-CPS"]="Fast CPS", ["SLOW-CPS"]="Slow CPS", ["SHORT-GAP"]="Short gap", ["LARGE-GAP"]="Large gap", ["END-ON-KF/START-ON-KF"]="On keyframe",
             ["NEAR-END-KF/NEAR-START-KF"]="Near keyframe", ["MISSED-END-KF/MISSED-START-KF"]="Missed keyframe",
-            ["LINE-BREAK"]="Line break", ["POSITION-TAG"]="Position tag", ["CLIP-TAG"]="Clip tag", ["FADE-TAG"]="Fade tag",
+            ["LINE-BREAK"]="Line break", ["POSITION-TAG"]="Position tag", ["CLIP-TAG"]="Clip tag", ["DRAWING-CLIP"]="Drawing + clip", ["FADE-TAG"]="Fade tag",
             ["TRANSFORM-TAG"]="Transform tag", ["KARAOKE-TAG"]="Karaoke tag", ["COMMENT-BLOCK"]="Comment block", ["HAS-DIGITS"]="Digits",
             ["HAS-CJK"]="CJK / kana", ["FULL-ITALIC"]="Full italic", ["DOUBLE-SPACE"]="Double space", ["EDGE-SPACE"]="Edge space",
             ["Toggle \\an8"]="Toggle \\an8", ["Toggle Italics"]="Toggle italics", ["Uppercase"]="Uppercase", ["Lowercase"]="Lowercase",
@@ -1072,7 +1054,7 @@ local UI = {
             ["Ellipsis to Comma"]="Ellipsis to comma", ["Ellipsis to Period"]="Ellipsis to period",
             ["Unify Quotes"]="Unify quotes", ["Normalize Dashes"]="Normalize dashes", ["Trim Trailing Spaces"]="Trim trailing spaces",
             ["Remove Duplicate Letters"]="Remove duplicate letters", ["Stutter Manager"]="Stutter manager", ["Extract Tags"]="Extract tags",
-            ["Reinsert Tags"]="Reinsert tags", ["Remove Tags"]="Remove tags", ["Remove Comments"]="Remove comments", ["Actor Parser"]="Actor parser",
+            ["Reinsert Tags"]="Reinsert tags", ["Remove Tags"]="Remove tags", ["Merge Tags"]="Merge tags", ["Remove Comments"]="Remove comments", ["Actor Parser"]="Actor parser",
             ["Swap Comment"]="Swap comment", ["Delete Comment Lines"]="Delete comment lines", ["Comments to Top"]="Comments to top",
             ["Comments to Bottom"]="Comments to bottom", ["Effects to Top"]="Effects to top", ["Fold by Identifier"]="Fold by identifier", ["Add Stutter"]="Add stutter",
             ["Add Ah Prefix"]="Add Ah prefix", ["Bidirectional Snapping"]="Bidirectional snapping", ["Start Snap Back"]="Start snap back", ["Start Snap Forward"]="Start snap forward", ["End Snap Back"]="End snap back", ["End Snap Forward"]="End snap forward", ["Remove Honorifics"]="Remove honorifics",
@@ -1103,7 +1085,7 @@ local UI = {
             ["TOO-WIDE"]="Demasiado ancho", ["TOO-SHORT"]="Muy corta", ["TOO-LONG"]="Muy larga", ["TOO-LONG-TIME"]="Duración excesiva",
             ["FAST-CPS"]="CPS alto", ["SLOW-CPS"]="CPS bajo", ["SHORT-GAP"]="Gap corto", ["LARGE-GAP"]="Gap largo", ["END-ON-KF/START-ON-KF"]="En keyframe",
             ["NEAR-END-KF/NEAR-START-KF"]="Cerca de keyframe", ["MISSED-END-KF/MISSED-START-KF"]="Keyframe omitido",
-            ["LINE-BREAK"]="Salto de línea", ["POSITION-TAG"]="Tag de posición", ["CLIP-TAG"]="Tag de clip", ["FADE-TAG"]="Tag de fade",
+            ["LINE-BREAK"]="Salto de línea", ["POSITION-TAG"]="Tag de posición", ["CLIP-TAG"]="Tag de clip", ["DRAWING-CLIP"]="Dibujo + clip", ["FADE-TAG"]="Tag de fade",
             ["TRANSFORM-TAG"]="Tag de transformación", ["KARAOKE-TAG"]="Tag de karaoke", ["COMMENT-BLOCK"]="Bloque de comentario", ["HAS-DIGITS"]="Dígitos",
             ["HAS-CJK"]="CJK / kana", ["FULL-ITALIC"]="Toda en cursiva", ["DOUBLE-SPACE"]="Doble espacio", ["EDGE-SPACE"]="Espacio al borde",
             ["Toggle \\an8"]="Alternar \\an8", ["Toggle Italics"]="Alternar cursiva", ["Uppercase"]="Mayúsculas", ["Lowercase"]="Minúsculas",
@@ -1112,7 +1094,7 @@ local UI = {
             ["Ellipsis to Comma"]="Elipsis a coma", ["Ellipsis to Period"]="Elipsis a punto",
             ["Unify Quotes"]="Unificar comillas", ["Normalize Dashes"]="Normalizar guiones", ["Trim Trailing Spaces"]="Quitar espacios finales",
             ["Remove Duplicate Letters"]="Quitar letras repetidas", ["Stutter Manager"]="Gestor de tartamudeo", ["Extract Tags"]="Extraer tags",
-            ["Reinsert Tags"]="Reinsertar tags", ["Remove Tags"]="Quitar tags", ["Remove Comments"]="Quitar comentarios", ["Actor Parser"]="Parsear actor",
+            ["Reinsert Tags"]="Reinsertar tags", ["Remove Tags"]="Quitar tags", ["Merge Tags"]="Unir tags", ["Remove Comments"]="Quitar comentarios", ["Actor Parser"]="Parsear actor",
             ["Swap Comment"]="Intercambiar comentario", ["Delete Comment Lines"]="Borrar líneas comentadas", ["Comments to Top"]="Comentarios arriba",
             ["Comments to Bottom"]="Comentarios abajo", ["Effects to Top"]="Con Effect arriba", ["Fold by Identifier"]="Fold por identificador", ["Add Stutter"]="Añadir tartamudeo",
             ["Add Ah Prefix"]="Añadir Ah inicial", ["Bidirectional Snapping"]="Snap bidireccional", ["Start Snap Back"]="Inicio a KF previo", ["Start Snap Forward"]="Inicio a KF siguiente", ["End Snap Back"]="Final a KF previo", ["End Snap Forward"]="Final a KF siguiente", ["Remove Honorifics"]="Comentar honoríficos",
@@ -1143,7 +1125,7 @@ local UI = {
             ["TOO-WIDE"]="Larga demais", ["TOO-SHORT"]="Curta demais", ["TOO-LONG"]="Longa demais", ["TOO-LONG-TIME"]="Duração excessiva",
             ["FAST-CPS"]="CPS alto", ["SLOW-CPS"]="CPS baixo", ["SHORT-GAP"]="Gap curto", ["LARGE-GAP"]="Gap longo", ["END-ON-KF/START-ON-KF"]="Em keyframe",
             ["NEAR-END-KF/NEAR-START-KF"]="Perto de keyframe", ["MISSED-END-KF/MISSED-START-KF"]="Keyframe perdido",
-            ["LINE-BREAK"]="Quebra de linha", ["POSITION-TAG"]="Tag de posição", ["CLIP-TAG"]="Tag de clip", ["FADE-TAG"]="Tag de fade",
+            ["LINE-BREAK"]="Quebra de linha", ["POSITION-TAG"]="Tag de posição", ["CLIP-TAG"]="Tag de clip", ["DRAWING-CLIP"]="Desenho + clip", ["FADE-TAG"]="Tag de fade",
             ["TRANSFORM-TAG"]="Tag de transformação", ["KARAOKE-TAG"]="Tag de karaokê", ["COMMENT-BLOCK"]="Bloco de comentário", ["HAS-DIGITS"]="Dígitos",
             ["HAS-CJK"]="CJK / kana", ["FULL-ITALIC"]="Toda em itálico", ["DOUBLE-SPACE"]="Espaço duplo", ["EDGE-SPACE"]="Espaço nas bordas",
             ["Toggle \\an8"]="Alternar \\an8", ["Toggle Italics"]="Alternar itálico", ["Uppercase"]="Maiúsculas", ["Lowercase"]="Minúsculas",
@@ -1152,7 +1134,7 @@ local UI = {
             ["Ellipsis to Comma"]="Reticências para vírgula", ["Ellipsis to Period"]="Reticências para ponto",
             ["Unify Quotes"]="Unificar aspas", ["Normalize Dashes"]="Normalizar travessões", ["Trim Trailing Spaces"]="Remover espaços finais",
             ["Remove Duplicate Letters"]="Remover letras repetidas", ["Stutter Manager"]="Gestor de gaguejo", ["Extract Tags"]="Extrair tags",
-            ["Reinsert Tags"]="Reinserir tags", ["Remove Tags"]="Remover tags", ["Remove Comments"]="Remover comentários", ["Actor Parser"]="Processar ator",
+            ["Reinsert Tags"]="Reinserir tags", ["Remove Tags"]="Remover tags", ["Merge Tags"]="Unir tags", ["Remove Comments"]="Remover comentários", ["Actor Parser"]="Processar ator",
             ["Swap Comment"]="Trocar comentário", ["Delete Comment Lines"]="Apagar linhas comentadas", ["Comments to Top"]="Comentários acima",
             ["Comments to Bottom"]="Comentários abaixo", ["Effects to Top"]="Com Effect acima", ["Fold by Identifier"]="Fold por identificador", ["Add Stutter"]="Adicionar gaguejo",
             ["Add Ah Prefix"]="Adicionar Ah inicial", ["Bidirectional Snapping"]="Snap bidirecional", ["Start Snap Back"]="Inicio ao KF anterior", ["Start Snap Forward"]="Inicio ao KF seguinte", ["End Snap Back"]="Fim ao KF anterior", ["End Snap Forward"]="Fim ao KF seguinte", ["Remove Honorifics"]="Comentar honoríficos",
@@ -1360,6 +1342,8 @@ is written to the Effect field.
    6.4. Override tag presence
         - LINE-BREAK, POSITION-TAG, CLIP-TAG, FADE-TAG, TRANSFORM-TAG,
           KARAOKE-TAG.
+        - DRAWING-CLIP: vector drawing that also carries \clip or
+          \iclip. Available as a Single Marker.
 
    6.5. Cleanup and content
         - COMMENT-BLOCK: comment block embedded in the text.
@@ -1416,6 +1400,9 @@ section during execution.
     - Reinsert Tags: returns override tags from Effect to the text and
       converts semicolons to commas inside override blocks.
     - Remove Tags: deletes override blocks from the visible dialogue.
+    - Merge Tags: merges adjacent override tag blocks, deleting the
+      }{ between them ({\an5}{\blur2} becomes {\an5\blur2}). Comment
+      blocks and non-adjacent blocks are left untouched.
     - Remove Comments: deletes comment blocks within the text.
     - Actor Parser: extracts actor information from the text.
     - Swap Comment: toggles the comment state of the line.
@@ -1801,6 +1788,8 @@ inscribe en Effect.
    6.4. Presencia de override tags
         - LINE-BREAK, POSITION-TAG, CLIP-TAG, FADE-TAG, TRANSFORM-TAG,
           KARAOKE-TAG.
+        - DRAWING-CLIP: dibujo vectorial que además lleva \clip o
+          \iclip. Disponible como Marcador único.
 
    6.5. Limpieza y contenido
         - COMMENT-BLOCK: bloque de comentario en el texto.
@@ -1859,6 +1848,9 @@ la sección durante la ejecución.
       bloques de override.
     - Remove Tags: elimina los bloques de override del diálogo
       visible.
+    - Merge Tags: une bloques de override contiguos borrando el }{
+      entre ellos ({\an5}{\blur2} pasa a {\an5\blur2}). Respeta los
+      bloques de comentario y los no contiguos.
     - Remove Comments: elimina los bloques de comentario dentro del
       texto.
     - Actor Parser: procesa información de actor a partir del texto.
@@ -2257,6 +2249,8 @@ etiqueta é inscrita no campo Effect.
    6.4. Presença de override tags
         - LINE-BREAK, POSITION-TAG, CLIP-TAG, FADE-TAG, TRANSFORM-TAG,
           KARAOKE-TAG.
+        - DRAWING-CLIP: desenho vetorial que também traz \clip ou
+          \iclip. Disponível como Marcador único.
 
    6.5. Limpeza e conteúdo
         - COMMENT-BLOCK: bloco de comentário embutido no texto.
@@ -2312,6 +2306,9 @@ seção durante a execução.
       os pontos e vírgulas como vírgulas dentro dos blocos de
       override.
     - Remove Tags: apaga os blocos de override do diálogo visível.
+    - Merge Tags: une blocos de override contíguos apagando o }{
+      entre eles ({\an5}{\blur2} vira {\an5\blur2}). Preserva os
+      blocos de comentário e os não contíguos.
     - Remove Comments: apaga os blocos de comentário dentro do texto.
     - Actor Parser: extrai informação de ator a partir do texto.
     - Swap Comment: alterna o estado comentado da linha.
@@ -3079,7 +3076,7 @@ local AUDIT_MARKERS = {
     ["THREE-LINES"]=true,["SHORT-LAST-LINE"]=true,["TOO-WIDE"]=true,
     ["BROKEN-TAG"]=true,["PUNCT-ERROR"]=true,["UNPAIRED-PUNCT"]=true,
     ["NO-END-PUNCT"]=true,["FINAL-COMMA"]=true,["OVERLAP"]=true,["SHORT-GAP"]=true,["LARGE-GAP"]=true,
-    ["UPPERCASE"]=true,["EMPTY"]=true,["DRAWING"]=true,
+    ["UPPERCASE"]=true,["EMPTY"]=true,["DRAWING"]=true,["DRAWING-CLIP"]=true,
     ["COMMENT"]=true,["TOO-LONG-TIME"]=true,
     ["END-ON-KF"]=true,["START-ON-KF"]=true,["NEAR-END-KF"]=true,["NEAR-START-KF"]=true,
     ["MISSED-END-KF"]=true,["MISSED-START-KF"]=true,
@@ -3513,7 +3510,7 @@ SINGLE_MARKER_ITEMS = {
     "SHORT-LAST-LINE","TOO-WIDE","BROKEN-TAG","OVERLAP","DEFAULT-STYLE",
     "ITALIC-ERROR","PARENTHESES","NAME-PREFIX","MULTI-SENTENCE",
     "STRONG-EXCL","STRONG-QUEST","MIXED-EMPHASIS","SEMICOLON","STUTTER",
-    "LINE-BREAK","POSITION-TAG","CLIP-TAG","FADE-TAG","TRANSFORM-TAG","KARAOKE-TAG",
+    "LINE-BREAK","POSITION-TAG","CLIP-TAG","DRAWING-CLIP","FADE-TAG","TRANSFORM-TAG","KARAOKE-TAG",
     "COMMENT-BLOCK","HAS-DIGITS","HAS-CJK","FULL-ITALIC","DOUBLE-SPACE","EDGE-SPACE",
 }
 local SINGLE_TO_CHECKS = {
@@ -3529,7 +3526,7 @@ local SINGLE_TO_CHECKS = {
     ["MIXED-EMPHASIS"]={"check_mixed_emphasis"}, ["SEMICOLON"]={"check_semicolon"},
     ["STUTTER"]={"check_stutter"},
     ["LINE-BREAK"]={"check_has_n"},   ["POSITION-TAG"]={"check_has_pos"},
-    ["CLIP-TAG"]={"check_has_clip"}, ["FADE-TAG"]={"check_has_fad"},
+    ["CLIP-TAG"]={"check_has_clip"}, ["DRAWING-CLIP"]={"check_draw_clip"}, ["FADE-TAG"]={"check_has_fad"},
     ["TRANSFORM-TAG"]={"check_has_t"},   ["KARAOKE-TAG"]={"check_has_k"},
     ["COMMENT-BLOCK"]={"check_has_comment"}, ["HAS-DIGITS"]={"check_has_num"},
     ["HAS-CJK"]={"check_has_cjk"}, ["FULL-ITALIC"]={"check_full_italic"},
@@ -3545,7 +3542,7 @@ local function applySingleMarkerOverride(config)
         "check_strong_excl","check_strong_quest","check_mixed_emphasis","check_semicolon","check_stutter",
         "check_has_n","check_has_pos","check_has_clip","check_has_fad",
         "check_has_t","check_has_k","check_has_comment","check_has_num",
-        "check_has_cjk","check_full_italic","check_dbl_space","check_edge_space",
+        "check_has_cjk","check_full_italic","check_dbl_space","check_edge_space","check_draw_clip",
     }
     for _, k in ipairs(allChecks) do config[k] = false end
     config.short_ms = 0
@@ -3714,6 +3711,7 @@ function auditLines(subs, sel, config)
 
                 if drawing then
                     addIssue(issues, "[DRAWING]")
+                    if config.check_draw_clip and hasClipTag(line.text) then addIssue(issues, "[DRAWING-CLIP]") end
                 else
                     if trimText(clean) == "" then
                         if config.check_empty ~= false then addIssue(issues, "[EMPTY]") end
@@ -4442,6 +4440,45 @@ function TagOperations.removeComments(subs, sel)
         if p and p.stripComments and p.commit then p:stripComments(); p:commit()
         else l.text = stripComments(l.text) end
         subs[i] = l
+    end
+end
+
+local function mergeAdjacentTagBlocks(text)
+    text = normalizeString(text)
+    local out, last = {}, 0
+    local i, n = 1, #text
+    while i <= n do
+        if text:sub(i, i) == "{" then
+            local close = text:find("}", i, true)
+            if not close then out[#out+1] = text:sub(i); last = 0; break end
+            local block = text:sub(i, close)
+            local isTag = block:find("\\", 1, true) ~= nil
+            if isTag and last > 0 then
+                out[last] = out[last]:sub(1, -2) .. block:sub(2)
+            else
+                out[#out+1] = block
+                last = isTag and #out or 0
+            end
+            i = close + 1
+        else
+            local nextBrace = text:find("{", i, true)
+            local stop = nextBrace and nextBrace - 1 or n
+            out[#out+1] = text:sub(i, stop)
+            last = 0
+            i = stop + 1
+        end
+    end
+    return table.concat(out)
+end
+
+function TagOperations.mergeTags(subs, sel)
+    for _, i in ipairs(sel) do
+        local l = subs[i]
+        local merged = mergeAdjacentTagBlocks(l.text)
+        if merged ~= normalizeString(l.text) then
+            l.text = merged
+            subs[i] = l
+        end
     end
 end
 
@@ -5475,6 +5512,9 @@ local function splitTextByPunctuation(text, comma)
             if isSplitIndex(chars, i, comma) then
                 local j = i
                 while j + 1 <= #chars and isSplitBoundary(chars[j+1], comma) do
+                    j = j + 1; current[#current+1] = chars[j]
+                end
+                while j + 1 <= #chars and CLOSING_PUNCTUATION[chars[j+1]] do
                     j = j + 1; current[#current+1] = chars[j]
                 end
                 local seg = trimText(table.concat(current))
@@ -8291,6 +8331,7 @@ local UTILITY_SECTIONS = {
             { name="Extract Tags",                      func = TagOperations.extractTags,           includeVector = true },
             { name="Reinsert Tags",                     func = TagOperations.reinsertTags,          includeVector = true },
             { name="Remove Tags",                       func = TagOperations.removeAllTags },
+            { name="Merge Tags",                        func = TagOperations.mergeTags,             includeVector = true },
             { name="Remove Comments",                   func = TagOperations.removeComments },
             { name="Actor Parser",                      func = TagOperations.parseActor,            returnsSelection = true },
             { name="Swap Comment",                      func = TagOperations.swapComment },
@@ -8900,8 +8941,7 @@ local function rowMasterGui(subs, sel)
             if #tsel == 0 then
                 showMsg(L("err_filter_zero"))
             else
-                autoTimer(subs, tsel)
-                return sel
+                if autoTimer(subs, tsel) then return sel end
             end
         elseif b == L("btn_extract_kf") then
             runScxvid()
